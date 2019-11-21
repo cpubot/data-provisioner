@@ -10,7 +10,8 @@
   "scripts": {
     "rebuild": "yarn clean && yarn tsc",
     "clean": "rm -rf dist/*",
-    "version": "./scripts/changelog-message.sh"
+    "version": "./scripts/changelog-message.sh",
+    "checkall": "true"
   },
   "devDependencies": {
     "rival-api-sdk-js": "^12.0.103",
