@@ -13,6 +13,7 @@
     "version": "./scripts/changelog-message.sh"
   },
   "devDependencies": {
+    "rival-api-sdk-js": "^12.0.103",
     "typescript": "^3.6.3"
   },
   "dependencies": {
