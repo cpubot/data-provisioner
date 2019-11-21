@@ -1,0 +1,31 @@
+{
+  "name": "data-provisioner",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "author": "Zachary Brown <zach@10etechnology.com>",
+  "license": "Rival Internal License",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "rebuild": "yarn clean && yarn tsc",
+    "clean": "rm -rf dist/*",
+    "version": "./scripts/changelog-message.sh"
+  },
+  "devDependencies": {
+    "typescript": "^3.6.3"
+  },
+  "dependencies": {
+    "fp-ts": "^2.1.2"
+  },
+  "peerDependencies": {
+    "rival-api-sdk-js": "^12.0.103"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://rival.jfrog.io/rival/api/npm/npm/"
+  },
+  "publishConfig": {
+    "registry": "https://rival.jfrog.io/rival/api/npm/npm-local/"
+  }
+}
