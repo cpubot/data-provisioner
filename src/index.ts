@@ -1,7 +1,8 @@
 export { provision, teardown, Runtime } from './lib/Runtime';
-export { create, query, extract, lit } from './lib/Expr';
+export { create, query, extract, lit, isExpr } from './lib/Expr';
 export {
   defaultLogger,
+  devNullLogger,
   defaultFormatter,
   createLogger,
   CreateLogger,

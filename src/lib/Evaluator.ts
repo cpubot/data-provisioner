@@ -28,9 +28,19 @@ type FullyEvaluatedHistory<E extends EntityType> = Required<
   EvaluationHistory<E>
 >;
 
+export const evalCompleted = <E extends EntityType>(
+  e: EvaluationHistory<E>
+): e is FullyEvaluatedHistory<E> =>
+  (['final', 'initial', 'order'] as (keyof FullyEvaluatedHistory<E>)[]).every(
+    key => e[key] !== undefined
+  );
+
 export type EvaluationContextAPI = {
-  initial: (expr: Expr<any>) => void;
-  final: (expr: ExprFilter<any, 'Lit'>, order: number) => void;
+  initial: <E extends EntityType>(expr: Expr<E>) => void;
+  final: <E extends EntityType>(
+    expr: ExprFilter<E, 'Lit'>,
+    order: number
+  ) => void;
   getEvaluationHistoryFor: <E extends EntityType>(
     expr: Expr<E>
   ) => FullyEvaluatedHistory<E>;
@@ -45,11 +55,12 @@ type EvaluationContext = Map<string, EvaluationHistory<any>>;
 export const createContext = (
   context: EvaluationContext = new Map()
 ): EvaluationContextAPI => {
-  const has = (expr: Expr<any>) => (prop: keyof EvaluationHistory<any>) =>
-    context.has(expr._id) && context.get(expr._id)![prop] !== undefined;
+  const has = <E extends EntityType>(expr: Expr<E>) => (
+    prop: keyof EvaluationHistory<E>
+  ) => context.has(expr._id) && context.get(expr._id)![prop] !== undefined;
 
-  const preventDuplicate = (expr: Expr<any>) => (
-    prop: keyof EvaluationHistory<any>
+  const preventDuplicate = <E extends EntityType>(expr: Expr<E>) => (
+    prop: keyof EvaluationHistory<E>
   ) => {
     if (has(expr)(prop)) {
       throw new Error(
@@ -72,14 +83,6 @@ export const createContext = (
       ...(context.get(expr._id) || { initial: expr }),
       final: expr,
     });
-  };
-
-  const evalCompleted = (
-    e: EvaluationHistory<any>
-  ): e is FullyEvaluatedHistory<any> => {
-    return (['final', 'initial', 'order'] as (keyof FullyEvaluatedHistory<
-      any
-    >)[]).every(key => e[key] !== undefined);
   };
 
   const getEvaluationHistoryFor: EvaluationContextAPI['getEvaluationHistoryFor'] = <

@@ -99,3 +99,4 @@ export const defaultFormatter: Formatter = msg => {
 };
 
 export const defaultLogger = createLogger(log)(defaultFormatter);
+export const devNullLogger = createLogger(s => () => {})(defaultFormatter);

@@ -109,3 +109,9 @@ export const extract = <E extends EntityType>(
   expr,
   extract,
 });
+
+export const isExpr = <E extends EntityType>(e: any): e is Expr<E> =>
+  e
+    ? Object.getPrototypeOf(e) === Object.prototype &&
+      ['_id', '_tag', 'entityType'].every(attr => e[attr] !== undefined)
+    : false;
