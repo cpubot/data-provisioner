@@ -16,7 +16,11 @@ import {
   lit,
 } from './Expr';
 
-import { Logger, createRequestLogFromExpr, createResponseLog } from './Logger';
+import {
+  ApiRequestLogger,
+  createRequestLogFromExpr,
+  createResponseLog,
+} from './Logger';
 
 type EvaluationHistory<E extends EntityType> = Readonly<{
   initial: Expr<E>;
@@ -132,11 +136,9 @@ const isExprExtractor = <E extends EntityType>(
 ): t is ExprExtractor<E> =>
   t ? Object.getPrototypeOf(t) === Object.prototype : false;
 
-const evalSubqueries = (logger: Logger) => (context: EvaluationContextAPI) => <
-  E extends EntityType
->(
-  query: Partial<AttrRecurse<E>>
-) => {
+const evalSubqueries = (logger: ApiRequestLogger) => (
+  context: EvaluationContextAPI
+) => <E extends EntityType>(query: Partial<AttrRecurse<E>>) => {
   type Key = string;
   type Value = string;
 
@@ -161,11 +163,9 @@ const evalSubqueries = (logger: Logger) => (context: EvaluationContextAPI) => <
   );
 };
 
-const evalQuery = (logger: Logger) => (context: EvaluationContextAPI) => async <
-  E extends EntityType
->(
-  query: Partial<AttrRecurse<E>>
-) => {
+const evalQuery = (logger: ApiRequestLogger) => (
+  context: EvaluationContextAPI
+) => async <E extends EntityType>(query: Partial<AttrRecurse<E>>) => {
   const evaluatedSubqueries = await evalSubqueries(logger)(context)(query);
 
   return Object.entries(query).reduce(
@@ -184,7 +184,7 @@ const evalQuery = (logger: Logger) => (context: EvaluationContextAPI) => async <
 let ord = 0;
 const nextOrd = () => ord++;
 
-export const evaluate = (logger: Logger) => (
+export const evaluate = (logger: ApiRequestLogger) => (
   context: EvaluationContextAPI
 ) => async <E extends EntityType>(
   expr: Expr<E>

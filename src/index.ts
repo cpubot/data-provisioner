@@ -1,17 +1,30 @@
 export { provision, teardown, Runtime } from './lib/Runtime';
-export { create, query, extract, lit, isExpr } from './lib/Expr';
 export {
-  defaultLogger,
-  devNullLogger,
+  create,
+  query,
+  extract,
+  lit,
+  isExpr,
+  Expr,
+  ExprFilter,
+} from './lib/Expr';
+export {
+  defaultApiLogger,
+  devNullApiLogger,
   defaultFormatter,
-  createLogger,
-  CreateLogger,
-  Logger,
+  createApiRequestLogger,
+  CreateApiRequestLogger,
+  ApiRequestLogger,
   Formatter,
   RequestLog,
   ResponseLog,
   RequestType,
   LogMessage,
+  info,
+  log,
+  error,
+  logDevNull,
+  Log,
 } from './lib/Logger';
 export { createSpec } from './lib/Spec';
-export { EvaluationContextAPI } from './lib/Evaluator';
+export { EvaluationContextAPI, evaluate } from './lib/Evaluator';

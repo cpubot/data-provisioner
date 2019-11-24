@@ -9,7 +9,11 @@ import { isNone } from 'fp-ts/lib/Option';
 
 import { Expr } from './Expr';
 import { createContext, evaluate, EvaluationContextAPI } from './Evaluator';
-import { Logger, createRequestLog, createResponseLog } from './Logger';
+import {
+  ApiRequestLogger,
+  createRequestLog,
+  createResponseLog,
+} from './Logger';
 
 export type Runtime = Readonly<{
   get: <E extends EntityType>(alg: Expr<E>) => ES.TypeMap[E];
@@ -21,7 +25,9 @@ const createRuntime = (context: EvaluationContextAPI): Runtime => ({
   getEvaluationHistory: context.getEvaluationHistory,
 });
 
-export const provision = (logger: Logger) => async <T extends Expr<any>[]>(
+export const provision = (logger: ApiRequestLogger) => async <
+  T extends Expr<any>[]
+>(
   args: T
 ): Promise<Either<[Runtime, Error], Runtime>> => {
   const evaluationContext = createContext();
@@ -38,7 +44,7 @@ export const provision = (logger: Logger) => async <T extends Expr<any>[]>(
   }
 };
 
-export const teardown = (logger: Logger) => async (
+export const teardown = (logger: ApiRequestLogger) => async (
   runtime: Runtime
 ): Promise<Either<NonEmptyArray<Error>, void>> => {
   const history = runtime.getEvaluationHistory();

@@ -3,7 +3,7 @@ import {
   EntityTypeKey,
   EntityType,
 } from 'rival-api-sdk-js';
-import { log } from 'fp-ts/lib/Console';
+import { log, error, info } from 'fp-ts/lib/Console';
 import { IO } from 'fp-ts/lib/IO';
 import { Option, chain, some, none } from 'fp-ts/lib/Option';
 
@@ -30,13 +30,14 @@ export type ResponseLog = {
 export type LogMessage = RequestLog | ResponseLog;
 
 export type Formatter = (msg: LogMessage) => Option<string>;
-export type Logger = (msg: LogMessage) => Option<void>;
+export type ApiRequestLogger = (msg: LogMessage) => Option<void>;
+export type Log = (s: unknown) => IO<void>;
 
-export type CreateLogger = (
-  l: (s: string) => IO<void>
-) => (format: Formatter) => Logger;
+export type CreateApiRequestLogger = (
+  l: Log
+) => (format: Formatter) => ApiRequestLogger;
 
-export const createLogger: CreateLogger = l => format => msg =>
+export const createApiRequestLogger: CreateApiRequestLogger = l => format => msg =>
   chain<string, void>(msg => some(l(msg)()))(format(msg));
 
 type CreateRequestLog = (
@@ -98,5 +99,10 @@ export const defaultFormatter: Formatter = msg => {
   }
 };
 
-export const defaultLogger = createLogger(log)(defaultFormatter);
-export const devNullLogger = createLogger(s => () => {})(defaultFormatter);
+const logDevNull: Log = () => () => {};
+export { log, info, error, logDevNull };
+
+export const defaultApiLogger = createApiRequestLogger(log)(defaultFormatter);
+export const devNullApiLogger = createApiRequestLogger(logDevNull)(
+  defaultFormatter
+);
