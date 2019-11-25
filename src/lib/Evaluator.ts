@@ -22,13 +22,13 @@ import {
   createResponseLog,
 } from './Logger';
 
-type EvaluationHistory<E extends EntityType> = Readonly<{
+export type EvaluationHistory<E extends EntityType> = Readonly<{
   initial: Expr<E>;
   final?: ExprFilter<E, 'Lit'>;
   order?: number;
 }>;
 
-type FullyEvaluatedHistory<E extends EntityType> = Required<
+export type FullyEvaluatedHistory<E extends EntityType> = Required<
   EvaluationHistory<E>
 >;
 
@@ -54,7 +54,7 @@ export type EvaluationContextAPI = {
   ) => EvaluationHistory<E> | undefined;
 };
 
-type EvaluationContext = Map<string, EvaluationHistory<any>>;
+export type EvaluationContext = Map<string, EvaluationHistory<any>>;
 
 export const createContext = (
   context: EvaluationContext = new Map()

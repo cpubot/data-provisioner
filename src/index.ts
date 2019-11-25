@@ -27,4 +27,10 @@ export {
   Log,
 } from './lib/Logger';
 export { createSpec } from './lib/Spec';
-export { EvaluationContextAPI, evaluate } from './lib/Evaluator';
+export {
+  EvaluationContextAPI,
+  EvaluationContext,
+  EvaluationHistory,
+  FullyEvaluatedHistory,
+  evaluate,
+} from './lib/Evaluator';
