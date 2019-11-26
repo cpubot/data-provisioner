@@ -221,7 +221,7 @@ A helper function wrapped around the [`create`](#create) combinator. Allows the 
 
 Most API entities have quite a few fields which are _not_ required to create the entity. Using [`createSpec`](#createspec), developers can annotate the specific fields required to create the entity.
 
-All call to [`createSpec`](#createspec) returns a new function, with the specified attributes now encoded as required parameters _at the type level_. I.e. you'll get a compiler error if you don't pass all the required fields.
+[`createSpec`](#createspec) returns a new function with the specified attributes encoded as required parameters _at the type level_. I.e. you'll get a compiler error if you don't pass all the required fields.
 
 > Note that like [`create`](#create), [`createSpec`](#createspec) accepts an optional `resolver` function which can be used to encode specialized resolver logic.
 
