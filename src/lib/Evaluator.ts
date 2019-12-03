@@ -242,9 +242,9 @@ export const evaluate = (logger: ApiRequestLogger) => (
     case 'Create': {
       context.initial(expr);
 
-      const fields = await evalQuery(logger)(context)(expr.fields);
+      const query = await evalQuery(logger)(context)(expr.query);
 
-      const requestLog = createRequestLogFromExpr(expr)(fields)('Create');
+      const requestLog = createRequestLogFromExpr(expr)(query)('Create');
       const responseLog = createResponseLog(requestLog);
 
       logger(requestLog);
@@ -252,7 +252,7 @@ export const evaluate = (logger: ApiRequestLogger) => (
       return (rivalApiSdkJs
         .instance()
         .entityClient(entityTypeToEntityTypeKey(expr.entityType))
-        .create(fields) as Transaction<ES.TypeMap[E]>)
+        .create(query) as Transaction<ES.TypeMap[E]>)
         .getPromise()
         .then(value =>
           expr.resolver(value).then(resolvedValue => {

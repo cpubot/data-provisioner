@@ -27,7 +27,7 @@ type _ExprTable<E extends EntityType> = Readonly<
         _id: string;
 
         entityType: E;
-        fields: Partial<AttrRecurse<E>>;
+        query: Partial<AttrRecurse<E>>;
         resolver: (entity: ES.TypeMap[E]) => Promise<ES.TypeMap[E]>;
       };
     }
@@ -45,7 +45,7 @@ export type ExprFilter<
 >;
 
 export type ExprExtractor<E extends EntityType> = Readonly<{
-  expr: Expr<E>;
+  expr: ExprFilter<E, 'Create' | 'Query' | 'Lit'>;
   extract: (entity: ES.TypeMap[E]) => unknown;
 }>;
 
@@ -90,14 +90,14 @@ export const query = <E extends EntityType>(
 
 export const create = <E extends EntityType>(
   entityType: ExprFilter<E, 'Create'>['entityType'],
-  fields: ExprFilter<E, 'Create'>['fields'],
+  query: ExprFilter<E, 'Create'>['query'],
   resolver: ExprFilter<E, 'Create'>['resolver'] = entity =>
     Promise.resolve(entity),
   _id = newId()
 ): ExprFilter<E, 'Create'> => ({
   _id,
   entityType,
-  fields,
+  query,
   resolver,
   _tag: 'Create',
 });
