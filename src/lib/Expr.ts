@@ -1,10 +1,24 @@
 import { EntitySchemas as ES, EntityType } from 'rival-api-sdk-js';
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
 
+import { id } from '../util/Resolvers';
+import { first } from '../util/Pickers';
+import { entityId } from '../util/Extractors';
+
 type TagWithKey<TagName extends string, T> = {
   [K in keyof T]: { [_ in TagName]: K } & T[K];
 };
 type Unionize<T> = T[keyof T];
+
+export type Resolver<E extends EntityType> = (
+  entity: ES.TypeMap[E]
+) => Promise<ES.TypeMap[E]>;
+export type Picker<E extends EntityType> = (
+  result: NonEmptyArray<ES.TypeMap[E]>
+) => ES.TypeMap[E];
+export type Extractor<E extends EntityType, R = unknown> = (
+  entity: ES.TypeMap[E]
+) => R;
 
 type _ExprTable<E extends EntityType> = Readonly<
   TagWithKey<
@@ -21,14 +35,14 @@ type _ExprTable<E extends EntityType> = Readonly<
 
         entityType: E;
         query: Partial<AttrRecurse<E>>;
-        picker: (result: NonEmptyArray<ES.TypeMap[E]>) => ES.TypeMap[E];
+        picker: Picker<E>;
       };
       Create: {
         _id: string;
 
         entityType: E;
         query: Partial<AttrRecurse<E>>;
-        resolver: (entity: ES.TypeMap[E]) => Promise<ES.TypeMap[E]>;
+        resolver: Resolver<E>;
       };
     }
   >
@@ -47,7 +61,7 @@ export type ExprFilter<
 export type ExprExtractor<E extends EntityType> = Readonly<{
   _tag: 'ExprExtractor';
   expr: ExprFilter<E, 'Create' | 'Query' | 'Lit'>;
-  extract: (entity: ES.TypeMap[E]) => unknown;
+  extract: Extractor<E>;
 }>;
 
 export type RValue<E extends EntityType> = ExprExtractor<E> | string;
@@ -83,7 +97,7 @@ export const lit = <E extends EntityType>(
 export const query = <E extends EntityType>(
   entityType: ExprFilter<E, 'Query'>['entityType'],
   query: ExprFilter<E, 'Query'>['query'],
-  picker: ExprFilter<E, 'Query'>['picker'] = results => results[0],
+  picker: ExprFilter<E, 'Query'>['picker'] = first(),
   _id = newId()
 ): ExprFilter<E, 'Query'> => ({
   _id,
@@ -96,8 +110,7 @@ export const query = <E extends EntityType>(
 export const create = <E extends EntityType>(
   entityType: ExprFilter<E, 'Create'>['entityType'],
   query: ExprFilter<E, 'Create'>['query'],
-  resolver: ExprFilter<E, 'Create'>['resolver'] = entity =>
-    Promise.resolve(entity),
+  resolver: ExprFilter<E, 'Create'>['resolver'] = id(),
   _id = newId()
 ): ExprFilter<E, 'Create'> => ({
   _id,
@@ -109,7 +122,7 @@ export const create = <E extends EntityType>(
 
 export const extract = <E extends EntityType>(
   expr: Expr<E>,
-  extract: ExprExtractor<E>['extract'] = e => e.id
+  extract: ExprExtractor<E>['extract'] = entityId()
 ): ExprExtractor<E> => ({
   _tag: 'ExprExtractor',
   expr,

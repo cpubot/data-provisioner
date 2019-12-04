@@ -34,3 +34,9 @@ export {
   FullyEvaluatedHistory,
   evaluate,
 } from './lib/Evaluator';
+
+import * as Extractors from './util/Extractors';
+import * as Pickers from './util/Pickers';
+import * as Resolvers from './util/Resolvers';
+
+export { Extractors, Pickers, Resolvers };
