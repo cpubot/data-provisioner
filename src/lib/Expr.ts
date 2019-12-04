@@ -1,4 +1,4 @@
-import { EntitySchemas as ES, EntityType, Entity } from 'rival-api-sdk-js';
+import { EntitySchemas as ES, EntityType } from 'rival-api-sdk-js';
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
 
 type TagWithKey<TagName extends string, T> = {
