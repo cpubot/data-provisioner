@@ -256,7 +256,11 @@ export const evaluate = (logger: ApiRequestLogger) => (
               logger(responseLog({ responsePayload: e, isError: true }));
 
               throw new Error(
-                `Query Expr failed ${JSON.stringify(expr, null, 2)}`
+                `Query Expr failed:\n\nResponse: ${JSON.stringify(
+                  e,
+                  null,
+                  2
+                )}\n\nExpr: ${JSON.stringify(expr, null, 2)}`
               );
             });
         })()
@@ -296,7 +300,11 @@ export const evaluate = (logger: ApiRequestLogger) => (
               logger(responseLog({ responsePayload: e, isError: true }));
 
               throw new Error(
-                `Create Expr failed ${JSON.stringify(expr, null, 2)}`
+                `Create Expr failed\n\nResponse: ${JSON.stringify(
+                  e,
+                  null,
+                  2
+                )}\n\nExpr: ${JSON.stringify(expr, null, 2)}`
               );
             });
         })()
