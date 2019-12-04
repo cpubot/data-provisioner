@@ -261,7 +261,9 @@ export const evaluate = (logger: ApiRequestLogger) => (
               logger(responseLog({ responsePayload: value, isError: true }));
 
               throw new Error(
-                `Query Expr returned empty result ${JSON.stringify(
+                `Query Expr returned empty result:\n\nQuery: ${
+                  EntityType[expr.entityType]
+                } ${JSON.stringify(query, null, 2)}\n\nExpr: ${JSON.stringify(
                   expr,
                   null,
                   2
@@ -272,7 +274,13 @@ export const evaluate = (logger: ApiRequestLogger) => (
               logger(responseLog({ responsePayload: e, isError: true }));
 
               throw new Error(
-                `Query Expr failed:\n\nResponse: ${JSON.stringify(
+                `Query Expr failed:\n\nQuery: ${
+                  EntityType[expr.entityType]
+                } ${JSON.stringify(
+                  query,
+                  null,
+                  2
+                )}\n\nResponse: ${JSON.stringify(
                   e,
                   null,
                   2
@@ -316,7 +324,13 @@ export const evaluate = (logger: ApiRequestLogger) => (
               logger(responseLog({ responsePayload: e, isError: true }));
 
               throw new Error(
-                `Create Expr failed\n\nResponse: ${JSON.stringify(
+                `Create Expr failed\n\nQuery: ${
+                  EntityType[expr.entityType]
+                } ${JSON.stringify(
+                  query,
+                  null,
+                  2
+                )}\n\nResponse: ${JSON.stringify(
                   e,
                   null,
                   2
