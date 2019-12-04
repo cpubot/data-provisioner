@@ -24,6 +24,7 @@ import {
 
 export type EvaluationHistory<E extends EntityType> = Readonly<{
   initial: Expr<E>;
+  evaluationPromise: Promise<ExprFilter<E, 'Lit'>>;
   final?: ExprFilter<E, 'Lit'>;
   order?: number;
 }>;
@@ -40,11 +41,14 @@ export const evalCompleted = <E extends EntityType>(
   );
 
 export type EvaluationContextAPI = {
-  initial: <E extends EntityType>(expr: Expr<E>) => void;
-  final: <E extends EntityType>(
-    expr: ExprFilter<E, 'Lit'>,
+  initial: <E extends EntityType, P extends Promise<ExprFilter<E, 'Lit'>>>(
+    expr: Expr<E>,
+    evaluationPromise: P
+  ) => P;
+  final: <E extends EntityType, Expr extends ExprFilter<E, 'Lit'>>(
+    expr: Expr,
     order: number
-  ) => void;
+  ) => Expr;
   getEvaluationHistoryFor: <E extends EntityType>(
     expr: Expr<E>
   ) => FullyEvaluatedHistory<E>;
@@ -73,10 +77,15 @@ export const createContext = (
     }
   };
 
-  const initial: EvaluationContextAPI['initial'] = expr => {
+  const initial: EvaluationContextAPI['initial'] = (
+    expr,
+    evaluationPromise
+  ) => {
     preventDuplicate(expr)('initial');
 
-    context.set(expr._id, { initial: expr });
+    context.set(expr._id, { initial: expr, evaluationPromise });
+
+    return evaluationPromise;
   };
 
   const final: EvaluationContextAPI['final'] = (expr, order) => {
@@ -84,9 +93,14 @@ export const createContext = (
 
     context.set(expr._id, {
       order,
-      ...(context.get(expr._id) || { initial: expr }),
+      ...(context.get(expr._id) || {
+        initial: expr,
+        evaluationPromise: Promise.resolve(expr),
+      }),
       final: expr,
     });
+
+    return expr;
   };
 
   const getEvaluationHistoryFor: EvaluationContextAPI['getEvaluationHistoryFor'] = <
@@ -186,92 +200,106 @@ const nextOrd = () => ord++;
 
 export const evaluate = (logger: ApiRequestLogger) => (
   context: EvaluationContextAPI
-) => async <E extends EntityType>(
-  expr: Expr<E>
-): Promise<ExprFilter<E, 'Lit'>> => {
+) => <E extends EntityType>(expr: Expr<E>): Promise<ExprFilter<E, 'Lit'>> => {
   // Check if expr has already been evaluated in this context
-  const contextValue = context.unsafeGet(expr);
-  if (contextValue && contextValue.final) {
-    // Return evaluated expr. Short-circuit evaluation logic.
-    return contextValue.final;
+  const initialValue = context.unsafeGet(expr);
+  if (initialValue && initialValue.initial._tag === expr._tag) {
+    return initialValue.evaluationPromise;
   }
 
   switch (expr._tag) {
     case 'Lit':
-      context.final(expr, nextOrd());
+      return Promise.resolve(context.final(expr, nextOrd()));
 
-      return expr;
-    case 'Query': {
-      context.initial(expr);
+    case 'Query':
+      return context.initial(
+        expr,
+        (async () => {
+          const query = await evalQuery(logger)(context)(expr.query);
 
-      const query = await evalQuery(logger)(context)(expr.query);
+          const requestLog = createRequestLogFromExpr(expr)(query)('Query');
+          const responseLog = createResponseLog(requestLog);
 
-      const requestLog = createRequestLogFromExpr(expr)(query)('Query');
-      const responseLog = createResponseLog(requestLog);
+          logger(requestLog);
 
-      logger(requestLog);
+          return (rivalApiSdkJs
+            .instance()
+            .entityClient(entityTypeToEntityTypeKey(expr.entityType))
+            .list(query) as Transaction<ES.TypeMap[E][]>)
+            .getPromise()
+            .then(value => {
+              const nonEmptyValue = fromArray(value);
 
-      return (rivalApiSdkJs
-        .instance()
-        .entityClient(entityTypeToEntityTypeKey(expr.entityType))
-        .list(query) as Transaction<ES.TypeMap[E][]>)
-        .getPromise()
-        .then(value => {
-          const nonEmptyValue = fromArray(value);
+              if (!isNone(nonEmptyValue)) {
+                logger(responseLog({ responsePayload: value, isError: false }));
 
-          if (!isNone(nonEmptyValue)) {
-            logger(responseLog({ responsePayload: value, isError: false }));
+                return evaluate(logger)(context)(
+                  lit(
+                    expr.entityType,
+                    expr.picker(nonEmptyValue.value),
+                    expr._id
+                  )
+                );
+              }
 
-            return evaluate(logger)(context)(
-              lit(expr.entityType, expr.picker(nonEmptyValue.value), expr._id)
-            );
-          }
+              logger(responseLog({ responsePayload: value, isError: true }));
 
-          logger(responseLog({ responsePayload: value, isError: true }));
+              throw new Error(
+                `Query Expr returned empty result ${JSON.stringify(
+                  expr,
+                  null,
+                  2
+                )}`
+              );
+            })
+            .catch(e => {
+              logger(responseLog({ responsePayload: e, isError: true }));
 
-          throw new Error(
-            `Query Expr returned empty result ${JSON.stringify(expr, null, 2)}`
-          );
-        })
-        .catch(e => {
-          logger(responseLog({ responsePayload: e, isError: true }));
+              throw new Error(
+                `Query Expr failed ${JSON.stringify(expr, null, 2)}`
+              );
+            });
+        })()
+      );
 
-          throw new Error(`Query Expr failed ${JSON.stringify(expr, null, 2)}`);
-        });
-    }
-    case 'Create': {
-      context.initial(expr);
+    case 'Create':
+      return context.initial(
+        expr,
+        (async () => {
+          const query = await evalQuery(logger)(context)(expr.query);
 
-      const query = await evalQuery(logger)(context)(expr.query);
+          const requestLog = createRequestLogFromExpr(expr)(query)('Create');
+          const responseLog = createResponseLog(requestLog);
 
-      const requestLog = createRequestLogFromExpr(expr)(query)('Create');
-      const responseLog = createResponseLog(requestLog);
+          logger(requestLog);
 
-      logger(requestLog);
+          return (rivalApiSdkJs
+            .instance()
+            .entityClient(entityTypeToEntityTypeKey(expr.entityType))
+            .create(query) as Transaction<ES.TypeMap[E]>)
+            .getPromise()
+            .then(value =>
+              expr.resolver(value).then(resolvedValue => {
+                logger(
+                  responseLog({
+                    responsePayload: resolvedValue,
+                    isError: false,
+                  })
+                );
 
-      return (rivalApiSdkJs
-        .instance()
-        .entityClient(entityTypeToEntityTypeKey(expr.entityType))
-        .create(query) as Transaction<ES.TypeMap[E]>)
-        .getPromise()
-        .then(value =>
-          expr.resolver(value).then(resolvedValue => {
-            logger(
-              responseLog({ responsePayload: resolvedValue, isError: false })
-            );
+                return evaluate(logger)(context)(
+                  lit(expr.entityType, resolvedValue, expr._id)
+                );
+              })
+            )
+            .catch(e => {
+              logger(responseLog({ responsePayload: e, isError: true }));
 
-            return evaluate(logger)(context)(
-              lit(expr.entityType, resolvedValue, expr._id)
-            );
-          })
-        )
-        .catch(e => {
-          logger(responseLog({ responsePayload: e, isError: true }));
-
-          throw new Error(
-            `Create Expr failed ${JSON.stringify(expr, null, 2)}`
-          );
-        });
-    }
+              throw new Error(
+                `Create Expr failed ${JSON.stringify(expr, null, 2)}`
+              );
+            });
+        })()
+      );
   }
 };
