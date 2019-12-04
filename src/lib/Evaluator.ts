@@ -145,27 +145,43 @@ export const createContext = (
   };
 };
 
+const isObject = (o: any): o is Record<string, any> =>
+  o ? Object.getPrototypeOf(o) === Object.prototype : false;
+
 const isExprExtractor = <E extends EntityType>(
   t: RValue<E>
 ): t is ExprExtractor<E> =>
-  t ? Object.getPrototypeOf(t) === Object.prototype : false;
+  t ? isObject(t) && t._tag === 'ExprExtractor' : false;
+
+const containsNestedExprExtractor = (t: Record<string, any>) =>
+  t ? isObject(t) && Object.values(t).some(isExprExtractor) : false;
 
 const evalSubqueries = (logger: ApiRequestLogger) => (
   context: EvaluationContextAPI
 ) => <E extends EntityType>(query: Partial<AttrRecurse<E>>) => {
   type Key = string;
-  type Value = string;
+  type Value = string | Record<string, string>;
 
   const kvPromiseTuples = Object.entries(query).reduce(
-    (promises, [key, val]: [string, RValue<any>]) =>
-      isExprExtractor(val)
-        ? [
-            ...promises,
-            evaluate(logger)(context)(val.expr).then(
-              e => [key, val.extract(e.value)] as [Key, Value]
-            ),
-          ]
-        : promises,
+    (promises, [key, val]) => {
+      if (isExprExtractor(val)) {
+        return [
+          ...promises,
+          evaluate(logger)(context)(val.expr).then(
+            e => [key, val.extract(e.value)] as [Key, Value]
+          ),
+        ];
+      }
+
+      if (containsNestedExprExtractor(val)) {
+        return [
+          ...promises,
+          evalQuery(logger)(context)(val).then(e => [key, e] as [Key, Value]),
+        ];
+      }
+
+      return promises;
+    },
     [] as Promise<[Key, Value]>[]
   );
 
@@ -173,7 +189,7 @@ const evalSubqueries = (logger: ApiRequestLogger) => (
     values.reduce((obj, [key, value]) => {
       obj[key] = value;
       return obj;
-    }, {} as Record<string, string>)
+    }, {} as Record<Key, Value>)
   );
 };
 
@@ -184,14 +200,14 @@ const evalQuery = (logger: ApiRequestLogger) => (
 
   return Object.entries(query).reduce(
     (newQuery, [key, val]: [string, RValue<any>]) => {
-      if (isExprExtractor(val)) {
+      if (evaluatedSubqueries[key]) {
         newQuery[key] = evaluatedSubqueries[key];
       } else {
         newQuery[key] = (query as any)[key];
       }
       return newQuery;
     },
-    {} as Record<string, string>
+    {} as Record<string, string | Record<string, string>>
   );
 };
 
@@ -225,7 +241,7 @@ export const evaluate = (logger: ApiRequestLogger) => (
           return (rivalApiSdkJs
             .instance()
             .entityClient(entityTypeToEntityTypeKey(expr.entityType))
-            .list(query) as Transaction<ES.TypeMap[E][]>)
+            .list(query as any) as Transaction<ES.TypeMap[E][]>)
             .getPromise()
             .then(value => {
               const nonEmptyValue = fromArray(value);

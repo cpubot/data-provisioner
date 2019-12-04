@@ -1,4 +1,4 @@
-import { EntitySchemas as ES, EntityType } from 'rival-api-sdk-js';
+import { EntitySchemas as ES, EntityType, Entity } from 'rival-api-sdk-js';
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
 
 type TagWithKey<TagName extends string, T> = {
@@ -45,6 +45,7 @@ export type ExprFilter<
 >;
 
 export type ExprExtractor<E extends EntityType> = Readonly<{
+  _tag: 'ExprExtractor';
   expr: ExprFilter<E, 'Create' | 'Query' | 'Lit'>;
   extract: (entity: ES.TypeMap[E]) => unknown;
 }>;
@@ -57,7 +58,11 @@ export type AttrRecurse<
   F extends (keyof Attr<E>)[] = (keyof Attr<E>)[]
 > = Readonly<
   {
-    [K in F[0]]: ExprExtractor<any> | Attr<E>[K];
+    [K in F[0]]:
+      | ExprExtractor<any>
+      | (Attr<E>[K] extends Record<string, unknown>
+          ? { [K1 in keyof Attr<E>[K]]: ExprExtractor<any> | Attr<E>[K][K1] }
+          : Attr<E>[K]);
   }
 >;
 
@@ -106,6 +111,7 @@ export const extract = <E extends EntityType>(
   expr: Expr<E>,
   extract: ExprExtractor<E>['extract'] = e => e.id
 ): ExprExtractor<E> => ({
+  _tag: 'ExprExtractor',
   expr,
   extract,
 });
