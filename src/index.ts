@@ -1,6 +1,7 @@
 export { provision, teardown, Runtime } from './lib/Runtime';
 export {
   create,
+  update,
   query,
   extract,
   lit,

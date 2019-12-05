@@ -339,5 +339,64 @@ export const evaluate = (logger: ApiRequestLogger) => (
             });
         })()
       );
+
+    case 'Update':
+      return context.initial(
+        expr,
+        (async () => {
+          const { entityId: entityIdOrExpr } = expr;
+          const entityId = isExprExtractor(entityIdOrExpr)
+            ? await evaluate(logger)(context)(entityIdOrExpr.expr).then(
+                e => entityIdOrExpr.extract(e.value) as string
+              )
+            : entityIdOrExpr;
+
+          const query = await evalQuery(logger)(context)(expr.query);
+
+          const requestLog = createRequestLogFromExpr(expr)(query)('Update');
+          const responseLog = createResponseLog(requestLog);
+
+          logger(requestLog);
+
+          return (rivalApiSdkJs
+            .instance()
+            .entityClient(entityTypeToEntityTypeKey(expr.entityType))
+            .update({ id: entityId, attributes: query }) as Transaction<
+            ES.TypeMap[E]
+          >)
+            .getPromise()
+            .then(value =>
+              expr.resolver(value).then(resolvedValue => {
+                logger(
+                  responseLog({
+                    responsePayload: resolvedValue,
+                    isError: false,
+                  })
+                );
+
+                return evaluate(logger)(context)(
+                  lit(expr.entityType, resolvedValue, expr._id)
+                );
+              })
+            )
+            .catch(e => {
+              logger(responseLog({ responsePayload: e, isError: true }));
+
+              throw new Error(
+                `Update Expr failed\n\nQuery: ${
+                  EntityType[expr.entityType]
+                } ${JSON.stringify(
+                  query,
+                  null,
+                  2
+                )}\n\nResponse: ${JSON.stringify(
+                  e instanceof Error ? e.message : e,
+                  null,
+                  2
+                )}\n\nExpr: ${JSON.stringify(expr, null, 2)}`
+              );
+            });
+        })()
+      );
   }
 };

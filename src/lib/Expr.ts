@@ -44,6 +44,14 @@ type _ExprTable<E extends EntityType> = Readonly<
         query: Partial<AttrRecurse<E>>;
         resolver: Resolver<E>;
       };
+      Update: {
+        _id: string;
+
+        entityType: E;
+        entityId: string | ExprExtractor<any>;
+        query: Partial<AttrRecurse<E>>;
+        resolver: Resolver<E>;
+      };
     }
   >
 >;
@@ -60,7 +68,7 @@ export type ExprFilter<
 
 export type ExprExtractor<E extends EntityType> = Readonly<{
   _tag: 'ExprExtractor';
-  expr: ExprFilter<E, 'Create' | 'Query' | 'Lit'>;
+  expr: ExprFilter<E, 'Create' | 'Query' | 'Lit' | 'Update'>;
   extract: Extractor<E>;
 }>;
 
@@ -118,6 +126,21 @@ export const create = <E extends EntityType>(
   query,
   resolver,
   _tag: 'Create',
+});
+
+export const update = <E extends EntityType>(
+  entityType: ExprFilter<E, 'Update'>['entityType'],
+  entityId: ExprFilter<E, 'Update'>['entityId'],
+  query: ExprFilter<E, 'Update'>['query'],
+  resolver: ExprFilter<E, 'Update'>['resolver'] = id(),
+  _id = newId()
+): ExprFilter<E, 'Update'> => ({
+  _id,
+  entityType,
+  entityId,
+  query,
+  resolver,
+  _tag: 'Update',
 });
 
 export const extract = <E extends EntityType>(
