@@ -34,14 +34,9 @@ export const provision = (logger: ApiRequestLogger) => async <
   const evaluator = evaluate(logger)(evaluationContext);
   const runtime = createRuntime(evaluationContext);
 
-  try {
-    for (const expr of args) {
-      await evaluator(expr);
-    }
-    return right(runtime);
-  } catch (e) {
-    return left([runtime, e]);
-  }
+  return Promise.all(args.map(evaluator))
+    .then(() => right(runtime))
+    .catch(e => left([runtime, e]));
 };
 
 export const teardown = (logger: ApiRequestLogger) => async (
