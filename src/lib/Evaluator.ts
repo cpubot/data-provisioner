@@ -281,7 +281,7 @@ export const evaluate = (logger: ApiRequestLogger) => (
                   null,
                   2
                 )}\n\nResponse: ${JSON.stringify(
-                  e,
+                  e instanceof Error ? e.message : e,
                   null,
                   2
                 )}\n\nExpr: ${JSON.stringify(expr, null, 2)}`
@@ -331,7 +331,7 @@ export const evaluate = (logger: ApiRequestLogger) => (
                   null,
                   2
                 )}\n\nResponse: ${JSON.stringify(
-                  e,
+                  e instanceof Error ? e.message : e,
                   null,
                   2
                 )}\n\nExpr: ${JSON.stringify(expr, null, 2)}`
