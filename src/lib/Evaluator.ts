@@ -276,15 +276,9 @@ export const evaluate = (logger: ApiRequestLogger) => (
               throw new Error(
                 `Query Expr failed:\n\nQuery: ${
                   EntityType[expr.entityType]
-                } ${JSON.stringify(
-                  query,
-                  null,
-                  2
-                )}\n\nResponse: ${JSON.stringify(
-                  e instanceof Error ? e.message : e,
-                  null,
-                  2
-                )}\n\nExpr: ${JSON.stringify(expr, null, 2)}`
+                } ${JSON.stringify(query, null, 2)}\n\nError: ${
+                  e instanceof Error ? e.message : JSON.stringify(e, null, 2)
+                }\n\nExpr: ${JSON.stringify(expr, null, 2)}`
               );
             });
         })()
@@ -326,15 +320,9 @@ export const evaluate = (logger: ApiRequestLogger) => (
               throw new Error(
                 `Create Expr failed\n\nQuery: ${
                   EntityType[expr.entityType]
-                } ${JSON.stringify(
-                  query,
-                  null,
-                  2
-                )}\n\nResponse: ${JSON.stringify(
-                  e instanceof Error ? e.message : e,
-                  null,
-                  2
-                )}\n\nExpr: ${JSON.stringify(expr, null, 2)}`
+                } ${JSON.stringify(query, null, 2)}\n\nError: ${
+                  e instanceof Error ? e.message : JSON.stringify(e, null, 2)
+                }\n\nExpr: ${JSON.stringify(expr, null, 2)}`
               );
             });
         })()
@@ -385,15 +373,9 @@ export const evaluate = (logger: ApiRequestLogger) => (
               throw new Error(
                 `Update Expr failed\n\nQuery: ${
                   EntityType[expr.entityType]
-                } ${JSON.stringify(
-                  query,
-                  null,
-                  2
-                )}\n\nResponse: ${JSON.stringify(
-                  e instanceof Error ? e.message : e,
-                  null,
-                  2
-                )}\n\nExpr: ${JSON.stringify(expr, null, 2)}`
+                } ${JSON.stringify(query, null, 2)}\n\nError: ${
+                  e instanceof Error ? e.message : JSON.stringify(e, null, 2)
+                }\n\nExpr: ${JSON.stringify(expr, null, 2)}`
               );
             });
         })()
