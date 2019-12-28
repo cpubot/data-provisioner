@@ -39,5 +39,6 @@ export {
 import * as Extractors from './util/Extractors';
 import * as Pickers from './util/Pickers';
 import * as Resolvers from './util/Resolvers';
+import * as Poll from './util/Poll';
 
-export { Extractors, Pickers, Resolvers };
+export { Extractors, Pickers, Resolvers, Poll };

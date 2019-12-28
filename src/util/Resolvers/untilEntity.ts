@@ -6,7 +6,7 @@ import rivalApiSdkJs, {
 
 import { Resolver } from '../../lib/Expr';
 
-export const until = <E extends EntityType>(
+export const untilEntity = <E extends EntityType>(
   pred: (e: ES.TypeMap[E]) => boolean
 ): Resolver<E> => e =>
   new Promise((resolve, reject) => {
