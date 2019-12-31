@@ -295,13 +295,15 @@ export const evaluate = (logger: ApiRequestLogger) => (
 
           logger(requestLog);
 
-          return (rivalApiSdkJs
+          const tx = rivalApiSdkJs
             .instance()
             .entityClient(entityTypeToEntityTypeKey(expr.entityType))
-            .create(query) as Transaction<ES.TypeMap[E]>)
+            .create(query) as Transaction<ES.TypeMap[E]>;
+
+          return tx
             .getPromise()
             .then(value =>
-              expr.resolver(value).then(resolvedValue => {
+              expr.resolver(value, tx.getId()).then(resolvedValue => {
                 logger(
                   responseLog({
                     responsePayload: resolvedValue,
@@ -346,15 +348,17 @@ export const evaluate = (logger: ApiRequestLogger) => (
 
           logger(requestLog);
 
-          return (rivalApiSdkJs
+          const tx = rivalApiSdkJs
             .instance()
             .entityClient(entityTypeToEntityTypeKey(expr.entityType))
             .update({ id: entityId, attributes: query }) as Transaction<
             ES.TypeMap[E]
-          >)
+          >;
+
+          return tx
             .getPromise()
             .then(value =>
-              expr.resolver(value).then(resolvedValue => {
+              expr.resolver(value, tx.getId()).then(resolvedValue => {
                 logger(
                   responseLog({
                     responsePayload: resolvedValue,

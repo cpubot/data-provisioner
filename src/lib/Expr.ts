@@ -11,7 +11,8 @@ type TagWithKey<TagName extends string, T> = {
 type Unionize<T> = T[keyof T];
 
 export type Resolver<E extends EntityType> = (
-  entity: ES.TypeMap[E]
+  entity: ES.TypeMap[E],
+  transactionId: string
 ) => Promise<ES.TypeMap[E]>;
 export type Picker<E extends EntityType> = (
   result: NonEmptyArray<ES.TypeMap[E]>
