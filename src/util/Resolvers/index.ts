@@ -26,17 +26,9 @@ export const untilHasAttrs = <
     )
   );
 
-export const withExternal = <E extends EntityType, T>(
-  getExternal: (e: ES.TypeMap[E]) => T | Promise<T>,
-  makeResolver: (t: T) => Resolver<E>
-): Resolver<E> => async (e, transactionId) => {
-  const t = await getExternal(e);
-  return makeResolver(t)(e, transactionId);
-};
-
-export const withExternalSideEffect = <E extends EntityType, T>(
-  getExternal: (e: ES.TypeMap[E]) => T | Promise<T>
-) => withExternal<E, T>(getExternal, () => t => Promise.resolve(t));
+export const toResolver = <E extends EntityType>(
+  effect: (e: ES.TypeMap[E]) => Promise<any>
+): Resolver<E> => e => effect(e).then(() => e);
 
 // Right-to-left composition
 export const compose = <E extends EntityType>(

@@ -40,5 +40,6 @@ import * as Extractors from './util/Extractors';
 import * as Pickers from './util/Pickers';
 import * as Resolvers from './util/Resolvers';
 import * as Poll from './util/Poll';
+import * as Fetch from './util/Fetch';
 
-export { Extractors, Pickers, Resolvers, Poll };
+export { Extractors, Pickers, Resolvers, Poll, Fetch };
