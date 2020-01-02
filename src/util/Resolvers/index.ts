@@ -34,10 +34,8 @@ export const toResolver = <E extends EntityType>(
 export const compose = <E extends EntityType>(
   a: Resolver<E>,
   b: Resolver<E>
-): Resolver<E> => async (e, transactionId) => {
-  const e1 = await b(e, transactionId);
-  return a(e1, transactionId);
-};
+): Resolver<E> => (e, transactionId) =>
+  b(e, transactionId).then(e1 => a(e1, transactionId));
 
 // Left-to-right composition
 export const composeR = <E extends EntityType>(
