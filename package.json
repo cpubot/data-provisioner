@@ -8,8 +8,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "yarn tsc -p tsconfig.build.json",
-    "rebuild": "yarn clean && yarn build",
+    "rebuild": "yarn clean && yarn tsc",
     "clean": "rm -rf dist/*",
     "version": "./scripts/changelog-message.sh",
     "checkall": "true"
