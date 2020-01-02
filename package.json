@@ -8,14 +8,15 @@
     "dist"
   ],
   "scripts": {
-    "rebuild": "yarn clean && yarn tsc",
+    "build": "yarn tsc -p tsconfig.build.json",
+    "rebuild": "yarn clean && yarn build",
     "clean": "rm -rf dist/*",
     "version": "./scripts/changelog-message.sh",
     "checkall": "true"
   },
   "devDependencies": {
     "rival-api-sdk-js": "^12.1.0",
-    "typescript": "^3.6.3"
+    "typescript": "^3.7.4"
   },
   "dependencies": {
     "fp-ts": "^2.1.2"
