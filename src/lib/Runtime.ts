@@ -25,8 +25,10 @@ const createRuntime = (context: EvaluationContextAPI): Runtime => ({
   getEvaluationHistory: context.getEvaluationHistory,
 });
 
+export type Recipe = Expr<any>[] | Record<string, Expr<any>>;
+
 export const provision = (logger: ApiRequestLogger) => (
-  args: Expr<any>[] | Record<string, Expr<any>>
+  args: Recipe
 ): Promise<Either<[Runtime, Error], Runtime>> => {
   const exprs = Array.isArray(args) ? args : Object.values(args);
 
