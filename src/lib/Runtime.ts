@@ -25,16 +25,16 @@ const createRuntime = (context: EvaluationContextAPI): Runtime => ({
   getEvaluationHistory: context.getEvaluationHistory,
 });
 
-export const provision = (logger: ApiRequestLogger) => async <
-  T extends Expr<any>[]
->(
-  args: T
+export const provision = (logger: ApiRequestLogger) => (
+  args: Expr<any>[] | Record<string, Expr<any>>
 ): Promise<Either<[Runtime, Error], Runtime>> => {
+  const exprs = Array.isArray(args) ? args : Object.values(args);
+
   const evaluationContext = createContext();
   const evaluator = evaluate(logger)(evaluationContext);
   const runtime = createRuntime(evaluationContext);
 
-  return Promise.all(args.map(evaluator))
+  return Promise.all(exprs.map(evaluator))
     .then(() => right(runtime))
     .catch(e => left([runtime, e]));
 };
