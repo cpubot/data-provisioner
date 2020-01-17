@@ -22,6 +22,8 @@ import {
   createResponseLog,
 } from './Logger';
 
+import { isObject } from './Util';
+
 export type EvaluationHistory<E extends EntityType> = Readonly<{
   initial: Expr<E>;
   evaluationPromise: Promise<ExprFilter<E, 'Lit'>>;
@@ -144,9 +146,6 @@ export const createContext = (
     unsafeGet,
   };
 };
-
-const isObject = (o: any): o is Record<string, any> =>
-  o ? Object.getPrototypeOf(o) === Object.prototype : false;
 
 const isExprExtractor = <E extends EntityType>(
   t: RValue<E>

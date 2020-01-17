@@ -7,13 +7,14 @@ import { Either, left, right } from 'fp-ts/lib/Either';
 import { NonEmptyArray, fromArray } from 'fp-ts/lib/NonEmptyArray';
 import { isNone } from 'fp-ts/lib/Option';
 
-import { Expr } from './Expr';
+import { Expr, isExpr } from './Expr';
 import { createContext, evaluate, EvaluationContextAPI } from './Evaluator';
 import {
   ApiRequestLogger,
   createRequestLog,
   createResponseLog,
 } from './Logger';
+import { isObject } from './Util';
 
 export type Runtime = Readonly<{
   get: <E extends EntityType>(alg: Expr<E>) => ES.TypeMap[E];
@@ -26,6 +27,10 @@ const createRuntime = (context: EvaluationContextAPI): Runtime => ({
 });
 
 export type Recipe = Expr<any>[] | Record<string, Expr<any>>;
+
+export const isRecipe = (r: any): r is Recipe =>
+  (Array.isArray(r) && r.every(isExpr)) ||
+  (isObject(r) && Object.values(r).every(isExpr));
 
 export const provision = (logger: ApiRequestLogger) => (
   args: Recipe

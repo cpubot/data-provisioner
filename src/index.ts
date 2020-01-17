@@ -1,4 +1,4 @@
-export { provision, teardown, Runtime, Recipe } from './lib/Runtime';
+export { provision, teardown, Runtime, Recipe, isRecipe } from './lib/Runtime';
 export {
   create,
   update,
