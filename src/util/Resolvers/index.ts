@@ -44,22 +44,27 @@ export const composeR = <E extends EntityType>(
 ): Resolver<E> => compose(b, a);
 
 export const awaitTransaction = <E extends EntityType>(
-  timeout = 30000
+  timeout = 30000,
+  rejectOnTimeout = true
 ): Resolver<E> => (e, transactionId) =>
   new Promise((resolve, reject) => {
     const entitySync = rivalApiSdkJs.instance().getEntitySyncService();
 
     const timer = setTimeout(() => {
       unbind();
-      reject(
-        new Error(
-          `Resolver for ${JSON.stringify(
-            e,
-            null,
-            2
-          )} timed out.\nTIMEOUT=${timeout}ms`
-        )
-      );
+      if (rejectOnTimeout) {
+        reject(
+          new Error(
+            `Resolver for ${JSON.stringify(
+              e,
+              null,
+              2
+            )} timed out.\nTIMEOUT=${timeout}ms`
+          )
+        );
+      } else {
+        resolve(e);
+      }
     }, timeout);
 
     const unbind = () => {
