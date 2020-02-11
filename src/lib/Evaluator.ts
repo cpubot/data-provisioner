@@ -29,6 +29,7 @@ export type EvaluationHistory<E extends EntityType> = Readonly<{
   evaluationPromise: Promise<ExprFilter<E, 'Lit'>>;
   final?: ExprFilter<E, 'Lit'>;
   order?: number;
+  query?: Partial<Readonly<ES.TypeMap[E]['attributes']>>;
 }>;
 
 export type FullyEvaluatedHistory<E extends EntityType> = Required<
@@ -38,9 +39,9 @@ export type FullyEvaluatedHistory<E extends EntityType> = Required<
 export const evalCompleted = <E extends EntityType>(
   e: EvaluationHistory<E>
 ): e is FullyEvaluatedHistory<E> =>
-  (['final', 'initial', 'order'] as (keyof FullyEvaluatedHistory<E>)[]).every(
-    key => e[key] !== undefined
-  );
+  (['final', 'initial', 'order', 'query'] as (keyof FullyEvaluatedHistory<
+    E
+  >)[]).every(key => e[key] !== undefined);
 
 export type EvaluationContextAPI = {
   initial: <E extends EntityType, P extends Promise<ExprFilter<E, 'Lit'>>>(
@@ -51,6 +52,10 @@ export type EvaluationContextAPI = {
     expr: Expr,
     order: number
   ) => Expr;
+  setQuery: <E extends EntityType>(
+    expr: Expr<E>,
+    q: FullyEvaluatedHistory<E>['query']
+  ) => void;
   getEvaluationHistoryFor: <E extends EntityType>(
     expr: Expr<E>
   ) => FullyEvaluatedHistory<E>;
@@ -98,11 +103,18 @@ export const createContext = (
       ...(context.get(expr._id) || {
         initial: expr,
         evaluationPromise: Promise.resolve(expr),
+        query: {},
       }),
       final: expr,
     });
 
     return expr;
+  };
+
+  const setQuery: EvaluationContextAPI['setQuery'] = (expr, query) => {
+    preventDuplicate(expr)('query');
+
+    context.set(expr._id, { query, ...context.get(expr._id)! });
   };
 
   const getEvaluationHistoryFor: EvaluationContextAPI['getEvaluationHistoryFor'] = <
@@ -144,6 +156,7 @@ export const createContext = (
     getEvaluationHistoryFor,
     getEvaluationHistory,
     unsafeGet,
+    setQuery,
   };
 };
 
@@ -231,6 +244,7 @@ export const evaluate = (logger: ApiRequestLogger) => (
         expr,
         (async () => {
           const query = await evalQuery(logger)(context)(expr.query);
+          context.setQuery(expr, query as any);
 
           const requestLog = createRequestLogFromExpr(expr)(query)('Query');
           const responseLog = createResponseLog(requestLog);
@@ -288,6 +302,7 @@ export const evaluate = (logger: ApiRequestLogger) => (
         expr,
         (async () => {
           const query = await evalQuery(logger)(context)(expr.query);
+          context.setQuery(expr, query as any);
 
           const requestLog = createRequestLogFromExpr(expr)(query)('Create');
           const responseLog = createResponseLog(requestLog);
@@ -341,6 +356,7 @@ export const evaluate = (logger: ApiRequestLogger) => (
             : entityIdOrExpr;
 
           const query = await evalQuery(logger)(context)(expr.query);
+          context.setQuery(expr, query as any);
 
           const requestLog = createRequestLogFromExpr(expr)(query)('Update');
           const responseLog = createResponseLog(requestLog);

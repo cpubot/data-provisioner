@@ -43,14 +43,20 @@ export const jsonToRuntime = (runtimePayload: JSON): Runtime => {
   const getEvaluationHistory: EvaluationContextAPI['getEvaluationHistory'] = () =>
     Array.from(evaluationContext.values()).sort((a, b) => b.order - a.order);
 
-  const get: Runtime['get'] = expr => {
+  const getEvaluationHistoryFor: EvaluationContextAPI['getEvaluationHistoryFor'] = expr => {
     if (!evaluationContext.has(expr._id)) {
       throw new Error(
         `Expr not evaluated in given context: ${JSON.stringify(expr, null, 2)}`
       );
     }
-    return evaluationContext.get(expr._id)!.final.value;
+
+    return evaluationContext.get(expr._id)!;
   };
 
-  return { getEvaluationHistory, get };
+  const get: Runtime['get'] = expr => getEvaluationHistoryFor(expr).final.value;
+
+  const getQuery: Runtime['getQuery'] = expr =>
+    getEvaluationHistoryFor(expr).query;
+
+  return { getEvaluationHistory, get, getQuery };
 };

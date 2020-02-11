@@ -7,22 +7,32 @@ import { Either, left, right } from 'fp-ts/lib/Either';
 import { NonEmptyArray, fromArray } from 'fp-ts/lib/NonEmptyArray';
 import { isNone } from 'fp-ts/lib/Option';
 
-import { Expr, isExpr } from './Expr';
-import { createContext, evaluate, EvaluationContextAPI } from './Evaluator';
+import { Expr, isExpr, ExprFilter, query } from './Expr';
+import {
+  createContext,
+  evaluate,
+  EvaluationContextAPI,
+  FullyEvaluatedHistory,
+} from './Evaluator';
 import {
   ApiRequestLogger,
   createRequestLog,
   createResponseLog,
+  defaultApiLogger,
 } from './Logger';
 import { isObject } from './Util';
 
 export type Runtime = Readonly<{
-  get: <E extends EntityType>(alg: Expr<E>) => ES.TypeMap[E];
+  get: <E extends EntityType>(expr: Expr<E>) => ES.TypeMap[E];
+  getQuery: <E extends EntityType>(
+    expr: Expr<E>
+  ) => FullyEvaluatedHistory<E>['query'];
   getEvaluationHistory: EvaluationContextAPI['getEvaluationHistory'];
 }>;
 
 const createRuntime = (context: EvaluationContextAPI): Runtime => ({
   get: expr => context.getEvaluationHistoryFor(expr).final.value,
+  getQuery: expr => context.getEvaluationHistoryFor(expr).query,
   getEvaluationHistory: context.getEvaluationHistory,
 });
 
