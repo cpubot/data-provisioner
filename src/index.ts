@@ -35,6 +35,7 @@ export {
   FullyEvaluatedHistory,
   evaluate,
 } from './lib/Evaluator';
+export { jsonToRuntime } from './util/jsonToRuntime';
 
 import * as Extractors from './util/Extractors';
 import * as Pickers from './util/Pickers';
