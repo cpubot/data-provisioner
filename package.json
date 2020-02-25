@@ -14,14 +14,14 @@
     "checkall": "true"
   },
   "devDependencies": {
-    "rival-api-sdk-js": "^13.0.0",
+    "rival-api-sdk-js": "^13.0.11",
     "typescript": "^3.7.4"
   },
   "dependencies": {
     "fp-ts": "^2.1.2"
   },
   "peerDependencies": {
-    "rival-api-sdk-js": "^13.0.0"
+    "rival-api-sdk-js": "^13.0.11"
   },
   "repository": {
     "type": "git",

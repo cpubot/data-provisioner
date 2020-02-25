@@ -542,10 +542,10 @@ remove-trailing-separator@^1.0.1:
   resolved "https://rival.jfrog.io/rival/api/npm/npm/remove-trailing-separator/-/remove-trailing-separator-1.1.0.tgz#c24bce2a283adad5bc3f58e0d48249b92379d8ef"
   integrity sha1-wkvOKig62tW8P1jg1IJJuSN52O8=
 
-rival-api-sdk-js@^13.0.0:
-  version "13.0.0"
-  resolved "https://rival.jfrog.io/rival/api/npm/npm/rival-api-sdk-js/-/rival-api-sdk-js-13.0.0.tgz#fc703ab5a9067beb1e6941808e7f22383546413b"
-  integrity sha1-/HA6takGe+seaUGAjn8iODVGQTs=
+rival-api-sdk-js@^13.0.11:
+  version "13.0.11"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/rival-api-sdk-js/-/rival-api-sdk-js-13.0.11.tgz#d05d19b3877cb6b7e03c3a251c8d3c8667b985ed"
+  integrity sha1-0F0Zs4d8trfgPDolHI08hme5he0=
   dependencies:
     aws-iot-device-sdk "^2.2.1"
     axios "^0.19.2"
