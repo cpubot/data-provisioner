@@ -7,7 +7,7 @@ import { Either, left, right } from 'fp-ts/lib/Either';
 import { NonEmptyArray, fromArray } from 'fp-ts/lib/NonEmptyArray';
 import { isNone } from 'fp-ts/lib/Option';
 
-import { Expr, isExpr, ExprFilter, query } from './Expr';
+import { Expr, isExpr } from './Expr';
 import {
   createContext,
   evaluate,
@@ -18,7 +18,6 @@ import {
   ApiRequestLogger,
   createRequestLog,
   createResponseLog,
-  defaultApiLogger,
 } from './Logger';
 import { isObject } from './Util';
 
@@ -42,7 +41,7 @@ export const isRecipe = (r: any): r is Recipe =>
   (Array.isArray(r) && r.every(isExpr)) ||
   (isObject(r) && Object.values(r).every(isExpr));
 
-export const provision = (logger: ApiRequestLogger) => (
+export const provision = (logger: ApiRequestLogger) => async (
   args: Recipe
 ): Promise<Either<[Runtime, Error], Runtime>> => {
   const exprs = Array.isArray(args) ? args : Object.values(args);
@@ -51,9 +50,14 @@ export const provision = (logger: ApiRequestLogger) => (
   const evaluator = evaluate(logger)(evaluationContext);
   const runtime = createRuntime(evaluationContext);
 
-  return Promise.all(exprs.map(evaluator))
-    .then(() => right(runtime))
-    .catch(e => left([runtime, e]));
+  try {
+    for (const expr of exprs) {
+      await evaluator(expr);
+    }
+    return right(runtime);
+  } catch (e) {
+    return left([runtime, e]);
+  }
 };
 
 export const teardown = (logger: ApiRequestLogger) => async (
