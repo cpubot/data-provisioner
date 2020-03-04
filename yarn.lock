@@ -357,7 +357,7 @@ leven@^2.1.0:
   resolved "https://rival.jfrog.io/rival/api/npm/npm/leven/-/leven-2.1.0.tgz#c2e7a9f772094dee9d34202ae8acce4687875580"
   integrity sha1-wuep93IJTe6dNCAq6KzORoeHVYA=
 
-lodash@^4.17.14:
+lodash@^4.17.14, lodash@^4.17.15:
   version "4.17.15"
   resolved "https://rival.jfrog.io/rival/api/npm/npm/lodash/-/lodash-4.17.15.tgz#b447f6670a0455bbfeedd11392eff330ea097548"
   integrity sha1-tEf2ZwoEVbv+7dETku/zMOoJdUg=
@@ -385,9 +385,9 @@ mqtt-packet@^5.6.0:
     safe-buffer "^5.1.0"
 
 mqtt-packet@^6.0.0:
-  version "6.3.1"
-  resolved "https://rival.jfrog.io/rival/api/npm/npm/mqtt-packet/-/mqtt-packet-6.3.1.tgz#7e3644a57c505b97d4de91d6b8c9eb65a502875c"
-  integrity sha1-fjZEpXxQW5fU3pHWuMnrZaUCh1w=
+  version "6.3.2"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/mqtt-packet/-/mqtt-packet-6.3.2.tgz#a737734a9a64e8cffbad7ad9e116d35b912f2e00"
+  integrity sha1-pzdzSppk6M/7rXrZ4RbTW5EvLgA=
   dependencies:
     bl "^1.2.2"
     debug "^4.1.1"
@@ -542,10 +542,10 @@ remove-trailing-separator@^1.0.1:
   resolved "https://rival.jfrog.io/rival/api/npm/npm/remove-trailing-separator/-/remove-trailing-separator-1.1.0.tgz#c24bce2a283adad5bc3f58e0d48249b92379d8ef"
   integrity sha1-wkvOKig62tW8P1jg1IJJuSN52O8=
 
-rival-api-sdk-js@^13.0.11:
-  version "13.0.11"
-  resolved "https://rival.jfrog.io/rival/api/npm/npm/rival-api-sdk-js/-/rival-api-sdk-js-13.0.11.tgz#d05d19b3877cb6b7e03c3a251c8d3c8667b985ed"
-  integrity sha1-0F0Zs4d8trfgPDolHI08hme5he0=
+rival-api-sdk-js@^14.0.1:
+  version "14.0.1"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/rival-api-sdk-js/-/rival-api-sdk-js-14.0.1.tgz#7eb145928d6dbbba11d159425ad4e888c6e76b6a"
+  integrity sha1-frFFko1tu7oR0VlCWtToiMbna2o=
   dependencies:
     aws-iot-device-sdk "^2.2.1"
     axios "^0.19.2"
@@ -622,6 +622,13 @@ to-absolute-glob@^2.0.0:
   dependencies:
     is-absolute "^1.0.0"
     is-negated-glob "^1.0.0"
+
+ts-api-types@^1.0.17:
+  version "1.0.17"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/ts-api-types/-/ts-api-types-1.0.17.tgz#8a37348421d9a998d00ea4f692ec7483e6f97e1a"
+  integrity sha1-ijc0hCHZqZjQDqT2kux0g+b5fho=
+  dependencies:
+    lodash "^4.17.15"
 
 type@^1.0.1:
   version "1.2.0"
