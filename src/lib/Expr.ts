@@ -1,4 +1,4 @@
-import { EntitySchemas as ES, EntityType } from 'rival-api-sdk-js';
+import { EntitySchemas as ES, EntityType } from 'ts-api-types';
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
 
 import { id } from '../util/Resolvers';

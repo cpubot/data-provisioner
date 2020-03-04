@@ -1,11 +1,11 @@
-import rivalApiSdkJs, {
+import rivalApiSdkJs, { Transaction } from 'rival-api-sdk-js';
+import { fromArray } from 'fp-ts/lib/NonEmptyArray';
+import { isNone } from 'fp-ts/lib/Option';
+import {
   EntityType,
   EntitySchemas as ES,
   entityTypeToEntityTypeKey,
-  Transaction,
-} from 'rival-api-sdk-js';
-import { fromArray } from 'fp-ts/lib/NonEmptyArray';
-import { isNone } from 'fp-ts/lib/Option';
+} from 'ts-api-types';
 
 import {
   Expr,

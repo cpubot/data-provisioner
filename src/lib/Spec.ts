@@ -1,4 +1,4 @@
-import { EntitySchemas as ES, EntityType } from 'rival-api-sdk-js';
+import { EntitySchemas as ES, EntityType } from 'ts-api-types';
 
 import { AttrRecurse, ExprFilter, create } from './Expr';
 

@@ -1,8 +1,6 @@
-import rivalApiSdkJs, {
-  EntitySchemas as ES,
-  EntityType,
-} from 'rival-api-sdk-js';
+import rivalApiSdkJs from 'rival-api-sdk-js';
 import { MessageHandler } from 'rival-api-sdk-js/dist/services/PublicEntitySync';
+import { EntitySchemas as ES, EntityType } from 'ts-api-types';
 
 import { Resolver } from '../../lib/Expr';
 import { untilEntity } from './untilEntity';

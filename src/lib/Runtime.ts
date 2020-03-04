@@ -1,11 +1,12 @@
-import rivalApiSdkJs, {
-  EntityType,
-  EntitySchemas as ES,
-  entityTypeToEntityTypeKey,
-} from 'rival-api-sdk-js';
+import rivalApiSdkJs from 'rival-api-sdk-js';
 import { Either, left, right } from 'fp-ts/lib/Either';
 import { NonEmptyArray, fromArray } from 'fp-ts/lib/NonEmptyArray';
 import { isNone } from 'fp-ts/lib/Option';
+import {
+  EntityType,
+  EntitySchemas as ES,
+  entityTypeToEntityTypeKey,
+} from 'ts-api-types';
 
 import { Expr, isExpr } from './Expr';
 import {

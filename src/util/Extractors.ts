@@ -1,4 +1,4 @@
-import { EntityType } from 'rival-api-sdk-js';
+import { EntityType } from 'ts-api-types';
 
 import { Extractor } from '../lib/Expr';
 

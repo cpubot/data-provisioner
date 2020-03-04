@@ -1,8 +1,9 @@
-import rivalApiSdkJs, {
+import rivalApiSdkJs from 'rival-api-sdk-js';
+import {
   EntitySchemas as ES,
   EntityType,
   snakeCaseToEntityTypeKey,
-} from 'rival-api-sdk-js';
+} from 'ts-api-types';
 
 import { Resolver } from '../../lib/Expr';
 

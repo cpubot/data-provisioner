@@ -1,8 +1,9 @@
-import rivalApiSdkJs, {
+import rivalApiSdkJs from 'rival-api-sdk-js';
+import {
   EntitySchemas as ES,
   EntityType,
   entityTypeToEntityTypeKey,
-} from 'rival-api-sdk-js';
+} from 'ts-api-types';
 
 export const poll = <QT extends EntityType>(
   pred: (result: ES.TypeMap[QT][]) => boolean

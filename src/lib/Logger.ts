@@ -2,7 +2,7 @@ import {
   entityTypeToEntityTypeKey,
   EntityTypeKey,
   EntityType,
-} from 'rival-api-sdk-js';
+} from 'ts-api-types';
 import { log, error, info } from 'fp-ts/lib/Console';
 import { IO } from 'fp-ts/lib/IO';
 import { Option, chain, some, none } from 'fp-ts/lib/Option';
