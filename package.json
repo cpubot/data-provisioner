@@ -1,6 +1,6 @@
 {
   "name": "data-provisioner",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "main": "./dist/index.js",
   "author": "Zachary Brown <zach@10etechnology.com>",
   "license": "Rival Internal License",
