@@ -542,7 +542,7 @@ This function accepts two optional parameters. `timeout` — which specifies t
 
 ### [`untilEntity`](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/untilEntity.ts)
 
-This resolver accepts a `predicate` function as a parameter, with which the developer can specify their own logic for indicating whether or not the entity should be considered resolved.
+This resolver accepts a `predicate` function as a parameter, with which the developer can specify their own logic for indicating whether or not the entity should be considered resolved. This resolver will continue to poll the entity from the API until the `predicate` returns `true`.
 
 > The `untilHasAttrs` resolver [uses this function internally](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts#L19).
 
