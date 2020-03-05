@@ -5,7 +5,7 @@ import { EntitySchemas as ES, EntityType } from 'ts-api-types';
 import { Resolver } from '../../lib/Expr';
 import { untilEntity } from './untilEntity';
 
-export { untilEntity };
+export { untilEntity, Resolver };
 
 export const id = <E extends EntityType>(): Resolver<E> => e =>
   Promise.resolve(e);
