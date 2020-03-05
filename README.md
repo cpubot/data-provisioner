@@ -796,22 +796,22 @@ const eventExpr = createEvent({
     timezone: extract(venue, v => v.attributes.timezone),
     datetimeUtc: moment(faker.date.future()).toISOString(),
   },
-  }
 });
 ```
 
 ## Creating non-inlined `resolvers`
 
-All the `resolvers` we've created thus far were added inline during the creation of our expressions. This provides the benefit of type-inference — TypeScript can automatically infer the type of the resolver by virtue of its explicit embedding into an already typed expression. All expressions are immediately 'reified' once its `EntityType` parameter is specified (this is how — TypeScript is able to type check the attribute parameters).
+All the `resolvers` we've created thus far were added inline during the creation of our expressions. This provides the benefit of type-inference — TypeScript can automatically infer the type of the resolver by virtue of its explicit embedding into an already typed expression. All expressions are immediately 'reified' once their `EntityType` parameter is specified (this is how TypeScript is able to type check the attribute parameters).
 
 ```typescript
-// This expression is reified to type `EntityType.Event` the moment the `EntityType.Event` parameter is specified.
+// This expression is reified to type `Expr<EntityType.Event>`
+// the moment the `EntityType.Event` parameter is specified.
 const expr = create(
   EntityType.Event,
   {
     //...
   },
-  // As such, typescript automatically knows the entity below
+  // As such, TypeScript automatically knows the entity below
   // _must_ be of type `event`.
   event => {
     // ...
