@@ -30,16 +30,18 @@ export const toResolver = <E extends EntityType>(
 
 // Right-to-left composition
 export const compose = <E extends EntityType>(
-  a: Resolver<E>,
-  b: Resolver<E>
-): Resolver<E> => (e, transactionId) =>
-  b(e, transactionId).then(e1 => a(e1, transactionId));
+  ...resolvers: Resolver<E>[]
+): Resolver<E> => (e, transactionId) => {
+  const [first, ...rest] = resolvers.slice().reverse();
+  return rest.reduce(
+    (z, a) => z.then(e1 => a(e1, transactionId)),
+    first(e, transactionId)
+  );
+};
 
-// Left-to-right composition
 export const composeR = <E extends EntityType>(
-  a: Resolver<E>,
-  b: Resolver<E>
-): Resolver<E> => compose(b, a);
+  ...resolvers: Resolver<E>[]
+): Resolver<E> => compose(...resolvers.slice().reverse());
 
 export const awaitTransaction = <E extends EntityType>(
   timeout = 30000,
