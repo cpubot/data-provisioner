@@ -58,7 +58,7 @@ type _ExprTable<E extends EntityType> = Readonly<
         _id: string;
 
         entityType: E;
-        file: ArrayBuffer | Buffer;
+        file: ArrayBuffer | Buffer | File;
         query: Partial<AttrRecurse<E>>;
         headers: Record<any, any>;
         resolver: Resolver<E>;
