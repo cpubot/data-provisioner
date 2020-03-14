@@ -1,4 +1,4 @@
-import rivalApiSdkJs, { Transaction } from 'rival-api-sdk-js';
+import rivalApiSdkJs, { Transaction, IUploadEntity } from 'rival-api-sdk-js';
 import { fromArray } from 'fp-ts/lib/NonEmptyArray';
 import { isNone } from 'fp-ts/lib/Option';
 import {
@@ -22,7 +22,7 @@ import {
   createResponseLog,
 } from './Logger';
 
-import { isObject } from './Util';
+import { isObject, omit } from './Util';
 
 export type EvaluationHistory<E extends EntityType> = Readonly<{
   initial: Expr<E>;
@@ -395,6 +395,76 @@ export const evaluate = (logger: ApiRequestLogger) => (
                 } ${JSON.stringify(query, null, 2)}\n\nError: ${
                   e instanceof Error ? e.message : JSON.stringify(e, null, 2)
                 }\n\nExpr: ${JSON.stringify(expr, null, 2)}`
+              );
+            });
+        })()
+      );
+
+    case 'Upload':
+      return context.initial(
+        omit(expr, ['file']) as any,
+        (async () => {
+          const query = await evalQuery(logger)(context)(expr.query);
+          context.setQuery(expr, query as any);
+
+          const requestLog = createRequestLogFromExpr(expr)(query)('Upload');
+          const responseLog = createResponseLog(requestLog);
+
+          logger(requestLog);
+
+          const promise = rivalApiSdkJs
+            .instance()
+            .getUploadClient(expr.entityType)
+            .upload(expr.file, query, expr.headers as Headers);
+
+          return promise
+            .then(value => {
+              if ((value.attributes as IUploadEntity).status !== 'VALID') {
+                throw new Error(
+                  JSON.stringify(
+                    (value.attributes as IUploadEntity).errors,
+                    null,
+                    2
+                  )
+                );
+              }
+
+              return expr
+                .resolver(value, (value.attributes as any).transactionId || '')
+                .then(resolvedValue => {
+                  logger(
+                    responseLog({
+                      responsePayload: resolvedValue,
+                      isError: false,
+                    })
+                  );
+
+                  return evaluate(logger)(context)(
+                    lit(expr.entityType, resolvedValue, expr._id)
+                  );
+                });
+            })
+            .catch(e => {
+              logger(responseLog({ responsePayload: e, isError: true }));
+
+              throw new Error(
+                `Upload Expr failed\n\nQuery: ${
+                  EntityType[expr.entityType]
+                } ${JSON.stringify(
+                  query,
+                  null,
+                  2
+                )}\n\nHeaders: ${JSON.stringify(
+                  expr.headers,
+                  null,
+                  2
+                )}\n\nError: ${
+                  e instanceof Error ? e.message : JSON.stringify(e, null, 2)
+                }\n\nExpr: ${JSON.stringify(
+                  { ...expr, file: '{...}' },
+                  null,
+                  2
+                )}`
               );
             });
         })()

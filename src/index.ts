@@ -3,6 +3,7 @@ export {
   create,
   update,
   query,
+  upload,
   extract,
   lit,
   isExpr,

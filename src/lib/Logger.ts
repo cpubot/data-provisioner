@@ -9,7 +9,7 @@ import { Option, chain, some, none } from 'fp-ts/lib/Option';
 
 import { Expr } from './Expr';
 
-export type RequestType = 'Create' | 'Query' | 'Delete' | 'Update';
+export type RequestType = 'Create' | 'Query' | 'Delete' | 'Update' | 'Upload';
 
 export type RequestLog = {
   _tag: 'Request';

@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@types/node@^13.9.1":
+  version "13.9.1"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/@types/node/-/node-13.9.1.tgz#96f606f8cd67fb018847d9b61e93997dabdefc72"
+  integrity sha1-lvYG+M1n+wGIR9m2HpOZfave/HI=
+
 async-limiter@~1.0.0:
   version "1.0.1"
   resolved "https://rival.jfrog.io/rival/api/npm/npm/async-limiter/-/async-limiter-1.0.1.tgz#dd379e94f0db8310b08291f9d64c3209766617fd"
@@ -369,10 +374,15 @@ minimatch@^3.0.4:
   dependencies:
     brace-expansion "^1.1.7"
 
-minimist@1.2.0, minimist@^1.1.0, minimist@^1.2.0:
+minimist@1.2.0:
   version "1.2.0"
   resolved "https://rival.jfrog.io/rival/api/npm/npm/minimist/-/minimist-1.2.0.tgz#a35008b20f41383eec1fb914f4cd5df79a264284"
   integrity sha1-o1AIsg9BOD7sH7kU9M1d95omQoQ=
+
+minimist@^1.1.0, minimist@^1.2.0:
+  version "1.2.5"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/minimist/-/minimist-1.2.5.tgz#67d66014b66a6a8aaa0c083c5fd58df4e4e97602"
+  integrity sha1-Z9ZgFLZqaoqqDAg8X9WN9OTpdgI=
 
 mqtt-packet@^5.6.0:
   version "5.6.1"
@@ -542,10 +552,10 @@ remove-trailing-separator@^1.0.1:
   resolved "https://rival.jfrog.io/rival/api/npm/npm/remove-trailing-separator/-/remove-trailing-separator-1.1.0.tgz#c24bce2a283adad5bc3f58e0d48249b92379d8ef"
   integrity sha1-wkvOKig62tW8P1jg1IJJuSN52O8=
 
-rival-api-sdk-js@^14.0.1:
-  version "14.0.1"
-  resolved "https://rival.jfrog.io/rival/api/npm/npm/rival-api-sdk-js/-/rival-api-sdk-js-14.0.1.tgz#7eb145928d6dbbba11d159425ad4e888c6e76b6a"
-  integrity sha1-frFFko1tu7oR0VlCWtToiMbna2o=
+rival-api-sdk-js@^15.0.1:
+  version "15.0.1"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/rival-api-sdk-js/-/rival-api-sdk-js-15.0.1.tgz#8f421d22c37674b8a4bf54bee04007caa2a21598"
+  integrity sha1-j0IdIsN2dLikv1S+4EAHyqKiFZg=
   dependencies:
     aws-iot-device-sdk "^2.2.1"
     axios "^0.19.2"
@@ -623,10 +633,10 @@ to-absolute-glob@^2.0.0:
     is-absolute "^1.0.0"
     is-negated-glob "^1.0.0"
 
-ts-api-types@^1.0.17:
-  version "1.0.17"
-  resolved "https://rival.jfrog.io/rival/api/npm/npm/ts-api-types/-/ts-api-types-1.0.17.tgz#8a37348421d9a998d00ea4f692ec7483e6f97e1a"
-  integrity sha1-ijc0hCHZqZjQDqT2kux0g+b5fho=
+ts-api-types@^1.0.16:
+  version "1.0.45"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/ts-api-types/-/ts-api-types-1.0.45.tgz#2775a731c7ff2e363f9e8da39a6667b545eec90e"
+  integrity sha1-J3WnMcf/LjY/no2jmmZntUXuyQ4=
   dependencies:
     lodash "^4.17.15"
 
@@ -645,10 +655,10 @@ typedarray@^0.0.6:
   resolved "https://rival.jfrog.io/rival/api/npm/npm/typedarray/-/typedarray-0.0.6.tgz#867ac74e3864187b1d3d47d996a78ec5c8830777"
   integrity sha1-hnrHTjhkGHsdPUfZlqeOxciDB3c=
 
-typescript@^3.7.4:
-  version "3.7.4"
-  resolved "https://rival.jfrog.io/rival/api/npm/npm/typescript/-/typescript-3.7.4.tgz#1743a5ec5fef6a1fa9f3e4708e33c81c73876c19"
-  integrity sha1-F0Ol7F/vah+p8+RwjjPIHHOHbBk=
+typescript@^3.8.3:
+  version "3.8.3"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/typescript/-/typescript-3.8.3.tgz#409eb8544ea0335711205869ec458ab109ee1061"
+  integrity sha1-QJ64VE6gM1cRIFhp7EWKsQnuEGE=
 
 ultron@~1.1.0:
   version "1.1.1"
@@ -679,9 +689,9 @@ uuid@^3.3.2:
   integrity sha1-sj5DWK+oogL+ehAK8fX4g/AgB+4=
 
 websocket-stream@^5.0.1, websocket-stream@^5.1.2:
-  version "5.5.0"
-  resolved "https://rival.jfrog.io/rival/api/npm/npm/websocket-stream/-/websocket-stream-5.5.0.tgz#9827f2846fc0d2b4dca7aab8f92980b2548b868e"
-  integrity sha1-mCfyhG/A0rTcp6q4+SmAslSLho4=
+  version "5.5.2"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/websocket-stream/-/websocket-stream-5.5.2.tgz#49d87083d96839f0648f5513bbddd581f496b8a2"
+  integrity sha1-Sdhwg9loOfBkj1UTu93VgfSWuKI=
   dependencies:
     duplexify "^3.5.1"
     inherits "^2.0.1"

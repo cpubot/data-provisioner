@@ -53,6 +53,16 @@ type _ExprTable<E extends EntityType> = Readonly<
         query: Partial<AttrRecurse<E>>;
         resolver: Resolver<E>;
       };
+
+      Upload: {
+        _id: string;
+
+        entityType: E;
+        file: ArrayBuffer | Buffer;
+        query: Partial<AttrRecurse<E>>;
+        headers: Record<any, any>;
+        resolver: Resolver<E>;
+      };
     }
   >
 >;
@@ -69,7 +79,7 @@ export type ExprFilter<
 
 export type ExprExtractor<E extends EntityType> = Readonly<{
   _tag: 'ExprExtractor';
-  expr: ExprFilter<E, 'Create' | 'Query' | 'Lit' | 'Update'>;
+  expr: ExprFilter<E, 'Create' | 'Query' | 'Lit' | 'Update' | 'Upload'>;
   extract: Extractor<E>;
 }>;
 
@@ -142,6 +152,23 @@ export const update = <E extends EntityType>(
   query,
   resolver,
   _tag: 'Update',
+});
+
+export const upload = <E extends EntityType>(
+  entityType: ExprFilter<E, 'Upload'>['entityType'],
+  file: ExprFilter<E, 'Upload'>['file'],
+  query: ExprFilter<E, 'Upload'>['query'] = {},
+  headers: ExprFilter<E, 'Upload'>['headers'] = {},
+  resolver: ExprFilter<E, 'Upload'>['resolver'] = id(),
+  _id = newId()
+): ExprFilter<E, 'Upload'> => ({
+  _id,
+  entityType,
+  file,
+  query,
+  headers,
+  resolver,
+  _tag: 'Upload',
 });
 
 export const extract = <E extends EntityType>(
