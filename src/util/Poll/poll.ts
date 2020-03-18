@@ -11,7 +11,7 @@ export const poll = <QT extends EntityType>(
   queryTarget: QT1,
   query: Record<string, any>
 ): Promise<ES.TypeMap[QT1][]> =>
-  new Promise(async (resolve, reject) => {
+  new Promise((resolve, reject) => {
     const etk = entityTypeToEntityTypeKey(queryTarget);
 
     const unbind = () => {

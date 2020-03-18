@@ -211,7 +211,7 @@ const evalQuery = (logger: ApiRequestLogger) => (
   const evaluatedSubqueries = await evalSubqueries(logger)(context)(query);
 
   return Object.entries(query).reduce(
-    (newQuery, [key, val]: [string, RValue<any>]) => {
+    (newQuery, [key]: [string, RValue<any>]) => {
       if (evaluatedSubqueries[key]) {
         newQuery[key] = evaluatedSubqueries[key];
       } else {
