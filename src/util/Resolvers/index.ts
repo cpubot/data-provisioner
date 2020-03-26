@@ -55,11 +55,11 @@ export const awaitTransaction = <E extends EntityType>(
       if (rejectOnTimeout) {
         reject(
           new Error(
-            `Resolver for ${JSON.stringify(
+            `awaitTransaction Resolver for ${e.type}: ${JSON.stringify(
               e,
               null,
               2
-            )} timed out.\nTIMEOUT=${timeout}ms`
+            )} timed out.\nTIMEOUT=${timeout}ms\nTransaction ID: ${transactionId}`
           )
         );
       } else {
