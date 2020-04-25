@@ -1,6 +1,8 @@
 # Data Provisioner
 
-A framework for declaratively specifying environment data requirements and an associated runtime for evaluating and fulfilling those requirements.
+Generally, this package is a framework which facilitates the declaration and sequentialization of a set of lazily evaluated asynchronous processes. It additionally includes affordances which facilitate the persistence and, dually, rehydration of evaluations of those processes.
+
+We also include a set of predefined processes which specialize this generalized abstraction to the semantics of the Rival APIs. As such, this can be used as a framework for declaratively specifying the set of processes required to put a Rival environment into a specific state, as well as evaluating and fulfilling those requirements in a deferred way.
 
 ## Motivation
 
@@ -8,9 +10,8 @@ The automation of acceptance tests is a crucial step towards achieving scalable 
 
 This framework aims to do the following:
 
-- Allow developers to express environment state in a declarative way.
-- Decouple environment state declarations from environment state provisioning (thus enabling code sharing between environment state declarations).
-- Automate inversion of environment state once tests are completed (no more side-effecty test set-up).
+- Allow developers to express the process for putting an environment into a specific state in a declarative and reuseable way that is decoupled from the execution of that process (thus enabling code sharing between environment state declarations).
+- Automate the inversion of environment state provisioning.
 
 ## Installation
 
@@ -20,503 +21,871 @@ yarn add data-provisioner
 
 ## Design
 
-This framework exposes two key abstractions:
+This package exposes two core abstractions:
 
-- [Expression combinators](#expression-combinators)
-  - An [embedded domain specific language](https://en.wikipedia.org/wiki/Domain-specific_language#External_and_Embedded_Domain_Specific_Languages) (EDSL) with which developers will compose an environment state.
-- [Environment runtime](#environment-runtime)
-  - EDSL interpreter and environment interface.
+- [Monadic Lazy Processes (`Proc`)](#proc)
+  - Facilitates declaration and sequentialization of asynchronous processes.
+- [Evaluator](#evaluator)
+  - Evaluates lazy processes and provides an interface for accessing, persisting, and rehydrating the data returned by evaluation of those processes.
 
-## Expression Combinators
-
-A set of functions used to describe how various API entities should be provisioned.
+As well as a set of specialized API processes ([`ApiProc`](#ApiProc)):
 
 - [`create`](#create)
-- [`query`](#query)
 - [`extract`](#extract)
-- [`createSpec`](#createspec)
-
-#### Relevant types
-
-> The following types will be referenced in forthcoming type signatures. You'll likely never need to use these — they're outlined here for reference.
-
-##### `EntityType`:
-
-An `enum` enumerating all available entity types from the Rival APIs. [Defined in `ts-api-types`](https://github.com/10eTechnology/ts-api-types/blob/master/types/EntityType.ts)
-
-Example:
-
-```typescript
-import { EntityType } from 'ts-api-types';
-
-type Event = EntityType.Event;
-```
-
-##### `ES.TypeMap`:
-
-A type constructor which returns an `EntityType`'s associated schema. [Defined in the `ts-api-types`](https://github.com/10eTechnology/ts-api-types/blob/master/types/EntitySchemas.ts)
-
-Example:
-
-```typescript
-import { EntityType, EntitySchemas as ES } from 'ts-api-types';
-
-type EventSchema = ES.TypeMap[EntityType.Event];
-```
-
-##### `AttrRecurse`:
-
-A type constructor which returns a type denoting all available fields for a particular `EntityType`. Field values _can_ be a reference to another expression (using the `extract` combinator).
-
-```typescript
-import { EntityType, EntitySchemas as ES } from 'ts-api-types';
-
-type Attr<E extends EntityType> = ES.TypeMap[E]['attributes'];
-
-type AttrRecurse<E extends EntityType> = {
-  [K in Attr<E>]: ExprExtractor<any> | Attr<E>[K];
-};
-```
-
-Where `ExprExtractor` denotes any nested `extract` calls.
-
-##### `Expr`:
-
-A type constructor which returns expression combinator parameterized by an `EntityType`.
-
-## Create
-
-A function used to indicate that an entity should be created with a given set of attributes. Accepts an optional [`resolver`](https://github.com/10eTechnology/data-provisioner/blob/master/src/lib/Expr.ts#L13) parameter which can be used to encode custom resolution logic.
-
-```typescript
-function create<E extends EntityType>(
-  entityType: E,
-  fields: AttrRecurse<E>,
-  resolver?: (
-    entity: ES.TypeMap[E],
-    transactionId: string
-  ) => Promise<ES.TypeMap[E]>
-): Expr<E>;
-```
-
-Examples:
-
-```typescript
-import { create } from 'data-provisioner';
-
-const deliveryMethod = create(EntityType.DeliveryMethod, {
-  name: 'My Delivery Method',
-  deliveryProcess: 'DIGITAL_IN_APP',
-});
-```
-
-With `resolver`:
-
-```typescript
-import { create } from 'data-provisioner';
-
-const deliveryMethod = create(
-  EntityType.DeliveryMethod,
-  {
-    name: 'My Delivery Method',
-    deliveryProcess: 'DIGITAL_IN_APP',
-  },
-  // You'll likely want to do something more interesting than this.
-  deliveryMethod => Promise.resolve(deliveryMethod)
-  // Where `deliveryMethod` is an instance of the DeliveryMethod entity.
-);
-```
-
-See [Built-in Resolvers](#built-in-resolvers) for more documentation on additional resolvers that are available.
-
-## Query
-
-A function used to indicate that an entity already exists in the environment. This _should_ generally be avoided if at all possible, but exists as a sort of escape hatch for the time being. Accepts an optional `picker` argument in the event that your query returns more than one result and you'd like to implement some custom result picking logic. By default the runtime will pick the first result.
-
-```typescript
-function query<E extends EntityType>(
-  entityType: EntityType,
-  query: AttrRecurse<E>,
-  picker?: (result: NonEmptyArray<ES.TypeMap[E]>) => ES.TypeMap[E]
-): Expr<E>;
-```
-
-Note that `picker` injects a `NonEmptyArray` of results. It is considered an invariant of the runtime — the runtime will `throw` if any query returns an empty result set.
-
-Examples:
-
-```typescript
-import { query } from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
-
-const productDistribution = query(EntityType.ProductDistribution, {
-  name: 'NUG_P_SEA',
-});
-```
-
-With `picker`:
-
-```typescript
-import { query } from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
-
-const productDistribution = query(
-  EntityType.ProductDistribution,
-  {},
-  // Pick the last item
-  results => results[results.length - 1]
-);
-```
-
-## Extract
-
-A function used to indicate that the resulting entity of a given expression evaluation should be used as a parameter to another expression. Accepts an optional `extract` parameter which allows specifying which attribute to pluck off the referenced entity — defaults to plucking off the entity's `id`.
-
-This is essentially the "glue" between expressions.
-
-```typescript
-function extract<E extends EntityType>(
-  expr: Expr<E>,
-  extract?: (entity: ES.TypeMap[E]) => unknown;
-): ExprExtractor<E>;
-```
-
-Examples:
-
-```typescript
-import { query, create, extract } from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
-
-const deliveryMethod = create(EntityType.DeliveryMethod, {
-  name: 'My Delivery Method',
-  deliveryProcess: 'DIGITAL_IN_APP',
-});
-
-const productDistribution = query(EntityType.ProductDistribution, {
-  name: 'NUG_P_SEA',
-});
-
-const productDistributionDeliveryMethod = create(
-  EntityType.ProductDistributionDeliveryMethod,
-  {
-    productDistributionId: extract(productDistribution),
-    deliveryMethodId: extract(deliveryMethod),
-  }
-);
-```
-
-With `extract` parameter:
-
-```typescript
-import { query, create, extract } from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
-
-const event = query(EntityType.Event, {
-  id: 'b8e1f80b-1574-7064-4734-444f856eb3a5',
-});
-
-const manifestConfiguration = query(EntityType.ManifestConfiguration, {
-  id: extract(event, e => e.attributes.manifestConfigurationId),
-});
-```
-
-## CreateSpec
-
-A helper function wrapped around the [`create`](#create) combinator. Allows the developer to encode required parameters into the signature of [`create`](#create).
-
-Most API entities have quite a few fields which are _not_ required to create the entity. Using [`createSpec`](#createspec), developers can annotate the specific fields required to create the entity.
-
-[`createSpec`](#createspec) returns a new function with the specified attributes encoded as required parameters _at the type level_. I.e. you'll get a compiler error if you don't pass all the required fields.
-
-> Note that like [`create`](#create), [`createSpec`](#createspec) accepts an optional `resolver` function which can be used to encode specialized resolver logic.
-
-Examples:
-
-```typescript
-const createDeliveryMethod = createSpec(EntityType.DeliveryMethod, [
-  'name',
-  'deliveryProcess',
-]);
-
-// This type-checks
-const deliveryMethod = createDeliveryMethod({
-  name: 'My Delivery Method',
-  deliveryProcess: 'DIGITAL_IN_APP',
-});
-
-// Type error
-const deliveryMethod = createDeliveryMethod({
-  name: 'My Delivery Method',
-});
-```
-
-## Environment Runtime
-
-The environment runtime exists as a sort of adapter layer between expressions and the environment itself. It transforms expressions into API calls, and exposes an interface which allows developers to reference entities created by the runtime via their associated expressions.
-
-- [`provision`](#provision)
-- [`teardown`](#teardown)
-
-#### Relevant types:
-
-##### `Runtime`
-
-```typescript
-type Runtime = {
-  get: <E extends EntityType>(expr: Expr<E>) => ES.TypeMap[E];
-};
-```
-
-`get` returns the entity instance associated with a given expression.
-
-## Provision
-
-A function which accepts an array of expressions and returns a `Promise` containing either a [`Runtime`](#runtime) context or a tuple of `[Runtime, Error]` if an error occurred.
-
-```typescript
-const provision = (logger: ApiRequestLogger) => (
-  args: Expr<any>[]
-): Promise<Either<[Runtime, Error], Runtime>>
-```
-
-#### `ApiRequestLogger`
-
-Note that [`provision`](#provision) is a curried function, with a first parameter of type `ApiRequestLogger`. This is a function the runtime will use to log API request activity. The framework provides two `ApiRequestLogger`s out of the box. Assuming all tests in your test suite will use the same logger, it's recommended that you partially apply this function with your desired logger somewhere in your test suite.
-
-With `defaultApiLogger` (logs to `STDOUT` / `console`):
-
-```typescript
-// provisioner.ts
-
-import { defaultApiLogger, provision } from 'data-provisioner';
-
-export const provisioner = provision(defaultApiLogger);
-```
-
-With `devNullApiLogger` (swallows all output):
-
-```typescript
-// provisioner.ts
-
-import { devNullApiLogger, provision } from 'data-provisioner';
-
-export const provisioner = provision(devNullApiLogger);
-```
-
-Usage:
-
-```typescript
-// Later on in a test...
-
-// my-test.ts
-import { provisioner } from './provisioner';
-```
-
-#### Using `provision`:
-
-> Note: This framework makes use of the [`fp-ts`](https://gcanti.github.io/fp-ts/) library. Specifically in this example, the [`provision`](#provision) function returns [`fp-ts`](https://gcanti.github.io/fp-ts/)'s [`Either`](https://gcanti.github.io/fp-ts/modules/Either.ts.html) type to bifurcate between error and success states. It's not a hard requirement to use this library to interact with the [`Either`](https://gcanti.github.io/fp-ts/modules/Either.ts.html) type, as it's just a TypeScript tagged union under the hood.
-
-```typescript
-import {
-  query,
-  create,
-  extract,
-  defaultApiLogger,
-  provision,
-  teardown,
-  Runtime,
-} from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
-import { isLeft } from 'fp-ts/lib/Either';
-
-const deliveryMethod = create(EntityType.DeliveryMethod, {
-  name: 'My Delivery Method',
-  deliveryProcess: 'DIGITAL_IN_APP',
-});
-
-const productDistribution = query(EntityType.ProductDistribution, {
-  name: 'NUG_P_SEA',
-});
-
-const productDistributionDeliveryMethod = create(
-  EntityType.ProductDistributionDeliveryMethod,
-  {
-    productDistributionId: extract(productDistribution),
-    deliveryMethodId: extract(deliveryMethod),
-  }
-);
-
-let runtime: Runtime;
-// Assume some notion of a `setup` function as part of the test suite...
-setup(async () => {
-  // Note that `deliveryMethod` and `productDistribution` don't need to be
-  // explicitly referenced, as they're referenced in the construction of
-  // `productDistributionDeliveryMethod`.
-  const result = await provision(defaultApiLogger)([
-    productDistributionDeliveryMethod,
-  ]);
-
-  if (isLeft(result)) {
-    const [runtime, error] = result.left;
-    // Invert any changes already performed in the environment
-    await teardown(defaultApiLogger)(runtime);
-    // Fail the test
-    throw error;
-  }
-
-  runtime = result.right;
-});
-
-// Later on on in the body of the test...
-() => {
-  // Instance of a ProductDistributionDeliveryMethod associated with the
-  // given expression (`productDistributionDeliveryMethod`)
-  const pdpm = runtime.get(productDistributionDeliveryMethod);
-};
-
-// Assume some notion of an `after` function as part of the test suite...
-after(async () => {
-  // Invert any changes performed on the environment
-  await teardown(defaultApiLogger)(runtime);
-});
-```
-
-An example of [`Either`](https://gcanti.github.io/fp-ts/modules/Either.ts.html) extraction without [`fp-ts`](https://gcanti.github.io/fp-ts/):
-
-```typescript
-const result = await provision(defaultApiLogger)([
-  productDistributionDeliveryMethod,
-]);
-
-if (result._tag === 'Left') {
-  const [runtime, error] = result.left;
-  await teardown(defaultApiLogger)(runtime);
-  throw error;
-}
-
-runtime = result.right;
-```
-
-> Note that the in the event of failure, [`runtime`](#runtime) will still contain the evaluation history up until failure, meaning that it can still be used to invert any changes that were already applied.
-
-## Teardown
-
-A function which accepts a term of type [`Runtime`](#runtime) (as created by a call to [`provision`](#provision)) and inverts any changes performed on the environment (through reading the associated [`Runtime`](#runtime)).
-
-Like [`provision`](#provision), [`teardown`](#teardown) is a curried function which accepts an [`ApiRequestLogger`](#ApiRequestLogger) as its first parameter which will be used to log API request activity.
-
-```typescript
-const teardown = (logger: ApiRequestLogger) => (
-  runtime: Runtime
-): Promise<Either<NonEmptyArray<Error>, void>>
-```
-
-[`teardown`](#teardown) returns a `Promise` containing either an array of errors encountered during inversion of environment state or `void` upon success.
-
-Example:
-
-```typescript
-const result = await provision(defaultApiLogger)([
-  productDistributionDeliveryMethod,
-]);
-
-if (isLeft(result)) {
-  const [runtime, error] = result.left;
-  await teardown(defaultApiLogger)(runtime);
-  throw error;
-}
-
-runtime = result.right;
-
-// Do useful stuff with the `runtime`...
-// ...
-
-await teardown(defaultApiLogger)(runtime);
-```
-
-With error handling:
-
-```typescript
-const result = await teardown(defaultApiLogger)(runtime);
-if (isLeft(result)) {
-  console.error('Teardown failed:');
-  result.left.forEach(console.error);
-
-  return;
-}
-
-console.log('Teardown successful');
-```
-
-## Built-in Resolvers
-
-[This repository ships with a set of built-in resolver functions](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts) you may use if your `create` or `update` expression requires more complicated resolution logic.
-
-- [`id`](#id)
+- [`query`](#query)
+- [`list`](#query)
+- [`update`](#update)
+- [`upload`](#upload)
+- [`poll`](#poll)
+- [`pollUntilNonEmpty`](#pollUntilNonEmpty)
+- [`pollFirst`](#pollFirst)
+- [`pollFirstUntilNonEmpty`](#pollFirstUntilNonEmpty)
+- [`untilEntity`](#untilEntity)
 - [`untilHasAttrs`](#untilHasAttrs)
 - [`awaitTransaction`](#awaitTransaction)
+
+## `Proc`
+
+[`Proc`](https://github.com/10eTechnology/data-provisioner/blob/master/src/core/Proc.ts#L147) (short for "process") is the "primitive" abstraction upon which all process declarations will be built. It is implemented in terms of [`fp-ts`'s `Monad` typeclass](https://gcanti.github.io/fp-ts/modules/Monad.ts.html), and as such can be manipulated in terms of all of `Monad`'s utilities as well as the [`pipeable`](https://gcanti.github.io/fp-ts/modules/pipeable.ts.html) functions. We also include a set of pre-specified [`Apply`](https://gcanti.github.io/fp-ts/modules/Apply.ts.html) utilities, [`sequenceT`](#sequenceT) and [`sequenceS`](#sequenceS).
+
+The type given to represent a `Proc` is, `Proc<A>`. `Proc` is polymorphic, and accepts a single type parameter, which represents the value to which the `Proc` eventually resolves.
+
+For example:
+
+```typescript
+type StringProc = Proc<string>;
+```
+
+### Constructing `Proc`s
+
+A set of functions are given to facilitate ad-hoc construction of `Proc`s.
+
+- [`lift`](#lift)
+- [`liftFn`](#liftFn)
+
+> See [here for `Lazy`](https://gcanti.github.io/fp-ts/modules/function.ts.html#lazy-interface) — it is used often. Essentially, it is just a type which wraps a value around a nullary function to facilitate delayed execution.
+
+##### `lift`
+
+Lift an arbitrary function which returns a `Promise` into a `Proc` context.
+
+```typescript
+type lift = <A>(p: Lazy<Promise<A>>) => Proc<A>;
+```
+
+E.g.:
+
+```typescript
+import { lift } from 'data-provisioner';
+
+// x :: Proc<number>
+const x = lift(() => Promise.resolve(1));
+```
+
+##### `liftFn`
+
+Lift an arbitrary function into a `Proc` context.
+
+```typescript
+type liftFn = <A>(f: Lazy<A>) => Proc<A>;
+```
+
+E.g.:
+
+```typescript
+import { liftFn } from 'data-provisioner';
+
+// x :: Proc<number>
+const x = liftFn(() => 1);
+```
+
+### Manipulating `Proc`s
+
+There are many ways to transform and chain `Proc`s. They'll be organized by typeclass source.
+
+#### `Monad` instance
+
+The `Proc` Monad instance can be imported directly and used to perform monadic actions on any `Proc`.
+
+- [`of`](#of)
+- [`ap`](#ap)
+- [`map`](#map)
+- [`chain`](#chain)
+
+##### `of`
+
+Lift a value into a `Proc` context.
+
+```typescript
+type of = <A>(a: A) => Proc<A>;
+```
+
+E.g.:
+
+```typescript
+import { proc } from 'data-provisioner';
+
+// x :: Proc<number>
+const x = proc.of(1);
+```
+
+##### `map`
+
+Given a `Proc` containing type `A` and a mapping function of type `A → B`, return a new `Proc` containing a transformed value of type `B`.
+
+```typescript
+type map = <A, B>(fa: Proc<A>, f: (a: A) => B) => Proc<B>;
+```
+
+E.g.:
+
+```typescript
+import { proc } from 'data-provisioner';
+
+// x :: Proc<number>
+const x = proc.of(1);
+// y :: Proc<boolean>
+const y = proc.map(x, (n) => n % 2 === 0);
+```
+
+##### `ap`
+
+Given a `Proc` containing type `A → B` and a `Proc` containing type `A`, return a new `Proc` containing a transformed value of type `B`.
+
+```typescript
+type ap = <A, B>(fab: Proc<(a: A) => B>, fa: Proc<A>) => Proc<B>;
+```
+
+E.g.:
+
+```typescript
+import { proc } from 'data-provisioner';
+
+// f :: Proc<(x: number) => boolean>
+const f = proc.of((x: number) => x % 2 === 0);
+// y :: Proc<boolean>
+const y = proc.ap(f, proc.of(2));
+```
+
+##### `chain`
+
+Given a `Proc` containing type `A` and a function of type `A → Proc<B>`, return a new `Proc` containing a transformed value of type `B`.
+
+```typescript
+type chain = <A, B>(ma: Proc<A>, f: (a: A) => Proc<B>) => Proc<B>;
+```
+
+E.g.:
+
+```typescript
+import { proc } from 'data-provisioner';
+
+// x :: Proc<number>
+const x = proc.of(2);
+// y :: Proc<boolean>
+const y = proc.chain(x, (n) => proc.of(n % 2 === 0));
+```
+
+> Note that the main difference between [`chain`](#chain) and [`map`](#map) is the fact that the mapping function given to [`chain`](#chain) returns a `Proc`, while the mapping function given to [`map`](#map) returns a primitive value. It may be hard to see the advantage of this, given a trivial example like the above, but the utility will later become clear.
+
+#### `Pipeable` instance
+
+[`fp-ts`'s `Pipeable`](https://gcanti.github.io/fp-ts/modules/pipeable.ts.html) gives a set of handy utilities for free, given a Monad instance, organized in an ergonomic way for specifying sequences of Monadic transformations when used in conjunction with the [`pipe` function](https://gcanti.github.io/fp-ts/modules/pipeable.ts.html#pipe).
+
+The `Pipeable` versions of the previously defined functions generally flip the order of the arguments and separate function application into two separate unary functions such that the focus is on the series of transformations and not the `Proc` instances themselves.
+
+E.g.:
+
+```typescript
+// Non-pipeable
+type map = <A, B>(fa: Proc<A>, f: (a: A) => B) => Proc<B>;
+```
+
+```typescript
+// Pipeable
+type map = <A, B>(f: (a: A) => B) => (fa: Proc<A>) => Proc<B>;
+```
+
+- [`map`](#map-pipeable)
+- [`ap`](#ap-pipeable)
+- [`apFirst`](#apFirst-pipeable)
+- [`apSecond`](#apSecond-pipeable)
+- [`chain`](#chain-pipeable)
+- [`chainFirst`](#chainFirst-pipeable)
+- [`flatten`](#flatten-pipeable)
+
+##### `map` (`Pipeable`)
+
+Pipeable version of the previously defined semantics of [`map`](#map).
+
+```typescript
+type map = <A, B>(f: (a: A) => B) => (fa: Proc<A>) => Proc<B>;
+```
+
+E.g.:
+
+```typescript
+import { pipe } from 'fp-ts/lib/pipeable';
+import { proc, map } from 'data-provisioner';
+
+// x :: Proc<boolean>
+const x = pipe(
+  proc.of(3),
+  map((n) => n % 2 === 0)
+);
+
+// y :: Proc<'true' | 'false'>
+const y = pipe(
+  proc.of('hello world'),
+  map((s) => s.length),
+  map((n) => n % 2 === 0),
+  map((b) => (b ? 'true' : 'false'))
+);
+```
+
+##### `ap` (`Pipeable`)
+
+Pipeable version of the previously defined semantics of [`ap`](#ap).
+
+```typescript
+type ap = <A>(fa: Proc<A>) => <B>(fab: Proc<(a: A) => B>) => Proc<B>;
+```
+
+E.g.:
+
+```typescript
+import { pipe } from 'fp-ts/lib/pipeable';
+import { proc, ap } from 'data-provisioner';
+
+// x :: Proc<boolean>
+const x = pipe(
+  proc.of((n: number) => n % 2 === 0),
+  ap(proc.of(3))
+);
+```
+
+##### `apFirst` (`Pipeable`)
+
+Given two `Proc`s, execute both and return the result of the first one. Useful for executing two effects (e.g. network requests) in parallel while only being interested in the return value of the first.
+
+```typescript
+const apFirst: <B>(fb: Proc<B>) => <A>(fa: Proc<A>) => Proc<A>;
+```
+
+E.g.:
+
+```typescript
+import { pipe } from 'fp-ts/lib/pipeable';
+import { proc, apFirst } from 'data-provisioner';
+
+// x :: Proc<3>
+const x = pipe(proc.of(3 as const), apFirst(proc.of('hello world')));
+```
+
+##### `apSecond` (`Pipeable`)
+
+Given two `Proc`s, execute both and return the result of the second one. Useful for executing two effects (e.g. network requests) in parallel while only being interested in the return value of the second.
+
+```typescript
+type apSecond = <B>(fb: Proc<B>) => <A>(fa: Proc<A>) => Proc<B>;
+```
+
+E.g.:
+
+```typescript
+import { pipe } from 'fp-ts/lib/pipeable';
+import { proc, apSecond } from 'data-provisioner';
+
+// x :: Proc<'hello world'>
+const x = pipe(proc.of(3), apSecond(proc.of('hello world' as const)));
+```
+
+##### `chain` (`Pipeable`)
+
+Pipeable version of the previously defined semantics of [`chain`](#chain).
+
+```typescript
+type chain = <A, B>(f: (a: A) => Proc<B>) => (ma: Proc<A>) => Proc<A>;
+```
+
+E.g.:
+
+```typescript
+import { pipe } from 'fp-ts/lib/pipeable';
+import { proc, chain } from 'data-provisioner';
+
+// x :: Proc<'true' | 'false'>
+const x = pipe(
+  proc.of('hello world'),
+  chain((s) => proc.of(s.length)),
+  chain((n) => proc.of(n % 2 === 0)),
+  chain((b) => proc.of(b ? 'true' : 'false'))
+);
+```
+
+##### `chainFirst` (`Pipeable`)
+
+Similar to [`apFirst`](#apFirst-pipeable), but accepts a _function which returns a `Proc`_ rather than a `Proc` itself. Useful for _sequencing_ (i.e. one effect depends on the result of the other) two effects (e.g. network requests) while only being interested in the return value of the first.
+
+```typescript
+type chainFirst = <A, B>(f: (a: A) => Proc<B>) => (ma: Proc<A>) => Proc<A>;
+```
+
+E.g.:
+
+```typescript
+import { pipe } from 'fp-ts/lib/pipeable';
+import { proc, chain, chainFirst } from 'data-provisioner';
+
+// x :: Proc<false>
+const x = pipe(
+  proc.of(3 as const),
+  chainFirst((n) => proc.of(n + 1)),
+  // Result of above^ is ignored, but still executed.
+  // `n` = 3 in this function.
+  chain((n) => proc.of(n % 2 === 0))
+);
+```
+
+##### `flatten` (`Pipeable`)
+
+Extracts a nested `Proc` into a single layered `Proc`.
+
+```typescript
+type flatten = <A>(mma: Proc<Proc<A>>) => Proc<A>;
+```
+
+E.g.:
+
+```typescript
+import { proc, flatten } from 'data-provisioner';
+
+// x :: Proc<Proc<number>>
+const x = proc.of(proc.of(5));
+// y :: Proc<number>
+const y = flatten(x);
+```
+
+```typescript
+import { pipe } from 'fp-ts/lib/pipeable';
+import { proc, flatten } from 'data-provisioner';
+
+// x :: Proc<boolean>
+const x = pipe(
+  proc.of(3),
+  map((n) => proc.of(n % 2 === 0)),
+  flatten
+  // ^^ using `chain` would avoid the need to
+  // `flatten`, but this is still possible.
+);
+```
+
+#### `Apply` instance
+
+`Apply` affords two functions which facilitate parallel execution of `Proc`s. This is quite handy when wanting to execute multiple `Proc`s in parallel and aggregate their results.
+
+- [`sequenceT`](#sequenceT)
+- [`sequenceS`](#sequenceS)
+
+##### `sequenceT`
+
+Given `n` `Proc`s, return a new `Proc` containing an `n` length _tuple_ (hence `T` in `sequenceT`) whose values correspond to each given `Proc`.
+
+```typescript
+import { proc, sequenceT } from 'data-provisioner';
+
+// x :: Proc<[number, string]>
+const x = sequenceT(proc.of(3), proc.of('hello world'));
+
+proc.map(x, ([num, str]) => {
+  // ...
+});
+```
+
+`sequenceT` is _variadic_.
+
+```typescript
+import { proc, sequenceT } from 'data-provisioner';
+
+// x :: Proc<[number, string, boolean]>
+const x = sequenceT(proc.of(3), proc.of('hello world'), proc.of(true));
+
+proc.map(x, ([num, str, bool]) => {
+  // ...
+});
+```
+
+##### `sequenceS`
+
+Nearly the same semantics as `sequenceT`, but operating on records (or "structs", hence in `S` `sequenceS`).
+
+```typescript
+import { proc, sequenceS } from 'data-provisioner';
+
+// x :: Proc<{ magicNumber: number; greeting: string; }>
+const x = sequenceS({
+  magicNumber: proc.of(3),
+  greeting: proc.of('Hello world'),
+});
+
+proc.map(x, ({ magicNumber, greeting }) => {
+  // ...
+});
+```
+
+## `ApiProc`
+
+As mentioned at the beginning of this README, this package includes a set of `Proc`s specialized to interacting with the Rival APIs. The type exposed to encapsulate these types of `Proc`s is `ApiProc`.
+
+All the previously described machinery works on `ApiProc`s, as they're just still just `Proc`s under the hood.
+
+`ApiProc` is not fully polymorphic like the `Proc` type — the type parameter associated to `ApiProc` must extend [`ts-api-types`'s `Entity` interface](https://github.com/10eTechnology/ts-api-types/blob/master/types/Entity.ts).
+
+For example:
+
+```typescript
+import { EntitySchemas as ES } from 'ts-api-types';
+import { ApiProc } from 'data-provisioner';
+
+type EventProc = ApiProc<ES.Event>;
+
+// Type Error
+type X = ApiProc<string>;
+```
+
+Under the hood, `ApiProc` is just syntactic sugar on top of the `Proc` type, which includes additional parameters that are relevant to API responses.
+
+Here is the full definition of `ApiProc`.
+
+```typescript
+type Method = 'Create' | 'Read' | 'List' | 'Update' | 'Delete';
+
+type Response<E extends Entity | Entity[] = Entity> = {
+  result: E;
+  query: Partial<
+    E extends Entity[]
+      ? E[0]['attributes']
+      : E extends Entity
+      ? E['attributes']
+      : never
+  >;
+  method: Method;
+  txId: string;
+};
+
+type ApiProc<
+  E extends Entity | NonEmptyArray.NonEmptyArray<Entity> = Entity
+> = Proc<Api.Response<E>>;
+```
+
+Given, the previous example:
+
+```typescript
+type EventProc = ApiProc<ES.Event>;
+```
+
+The expanded type is:
+
+```typescript
+type EventProc = {
+  result: ES.Event;
+  query: Partial<ES.Event['attributes']>;
+  method: Method;
+  txId: string;
+};
+```
+
+### Predefined `ApiProc`s
+
+- [`create`](#create)
+- [`extract`](#extract)
+- [`query`](#query)
+- [`list`](#query)
+- [`update`](#update)
+- [`upload`](#upload)
+- [`poll`](#poll)
+- [`pollUntilNonEmpty`](#pollUntilNonEmpty)
+- [`pollFirst`](#pollFirst)
+- [`pollFirstUntilNonEmpty`](#pollFirstUntilNonEmpty)
 - [`untilEntity`](#untilEntity)
-- [`toResolver`](#toResolver)
-- [`compose`](#compose)
-- [`composeR`](#composeR)
+- [`untilHasAttrs`](#untilHasAttrs)
+- [`awaitTransaction`](#awaitTransaction)
 
-##### Type signature of `resolver`
+### `ApiProc`s which accept queries
+
+Many of the above listed `ApiProc`s accept queries. Each that does includes some additional syntactic sugar which allows embedding `Proc`s into the query object. The type that encapsulates this type of query is called `QueryAttributes`. It will be referenced often.
+
+#### `create`
+
+Given an `EntityType` and a query, send a create request to the API.
 
 ```typescript
-type Resolver<E extends EntityType> = (
-  entity: ES.TypeMap[E],
-  transactionId: string
-) => Promise<ES.TypeMap[E]>;
+type create = <E extends EntityType>(
+  entityType: E,
+  query: QueryAttributes<E>
+) => ApiProc<ES.TypeMap[E]>;
 ```
 
-A `resolver` is a function which accepts two parameters (you are free to write your own in-line if you'd like!).
-
-1. `entity` — The entity instance returned from evaluating the expression.
-2. `transactionId` — The transaction-id sent along with the request used to create/update the entity.
-
-The function must return a `Promise` which resolves with the given entity instance.
-
-### [`id`](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts#L10)
-
-This is the default `resolver` function used in `update` and `create` expressions. It simply returns the entity returned from the evaluation of the expression.
-
-##### Signature and implementation
+E.g.:
 
 ```typescript
-export const id = <E extends EntityType>(): Resolver<E> => e =>
-  Promise.resolve(e);
-```
-
-### [`untilHasAttrs`](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts#L13)
-
-This resolver polls the API for the returned entity until the specified attributes are neither `null` nor `undefined`. Accepts an array of the entity type's attribute names.
-
-##### Signature
-
-```typescript
-type untilHasAttrs = <
-  E extends EntityType,
-  F extends (keyof ES.TypeMap[E]['attributes'])[]
->(
-  f: F
-) => Resolver<E>;
-```
-
-##### Example
-
-```typescript
-import { create, Resolvers } from 'data-provisioner';
 import { EntityType } from 'ts-api-types';
+import { create } from 'data-provisioner';
 
-const { untilHasAttrs } = Resolvers;
+const event = create(EntityType.Event, { name: 'My Event' });
+```
 
-const expr = create(
+#### `extract`
+
+Given an `ApiProc` and an optional mapping function, return a new `Proc` which resolves with the return value of the mapping function. If a mapping function is not provided, it will return the `id` of the entity in the `ApiProc`.
+
+This is useful for referencing the entities associated to `ApiProc`s within the query of another `ApiProc`.
+
+```typescript
+function extract<E extends Entity | NonEmptyArray.NonEmptyArray<Entity>>(
+  p: ApiProc<E>
+): Proc<string>;
+function extract<E extends Entity | NonEmptyArray.NonEmptyArray<Entity>, A>(
+  p: ApiProc<E>,
+  f: (e: E) => A
+): Proc<A>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType } from 'ts-api-types';
+import { create, query, extract } from 'data-provisioner';
+import faker from faker;
+
+const venue = query(EntityType.Venue, { name: 'Paramount Theatre' });
+
+const mCT = query(EntityType.ManifestConfigurationTemplate, {
+  venueId: extract(venue),
+});
+
+const event = create(EntityType.Event, {
+  manifestConfigurationTemplateId: extract(mCT),
+  name: 'My Event',
+  eventDatetime: {
+    timezone: extract(venue, (v) => v.attributes.timezone),
+    datetimeUtc: moment(faker.date.future()).toISOString(),
+  },
+});
+```
+
+#### `query`
+
+Given an `EntityType` and a query, send a list request to the API, returning the first result. If the result is empty, an exception will be thrown.
+
+```typescript
+type query = <E extends EntityType>(
+  entityType: E,
+  query: QueryAttributes<E>
+) => ApiProc<ES.TypeMap[E]>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType } from 'ts-api-types';
+import { query } from 'data-provisioner';
+
+const venue = query(EntityType.Venue, { name: 'Paramount Theatre' });
+```
+
+#### `list`
+
+Given an `EntityType` and a query, send a list request to the API, returning the entire result. If the result is empty, an exception will be thrown.
+
+```typescript
+type list = <E extends EntityType>(
+  entityType: E,
+  query: QueryAttributes<E>
+) => ApiProc<NonEmptyArray<ES.TypeMap[E]>>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType } from 'ts-api-types';
+import { list } from 'data-provisioner';
+
+const productDistributions = list(EntityType.ProductDistribution, {
+  active: true,
+});
+```
+
+#### `update`
+
+Given an `EntityType`, an entity ID, and a query, send an update request to the API, returning the updated entity from the API.
+
+```typescript
+type update = <E extends EntityType>(
+  entityType: E,
+  idProc: Proc<string> | string,
+  query: QueryAttributes<E>
+) => ApiProc<ES.TypeMap[E]>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType } from 'ts-api-types';
+import { update, query, extract } from 'data-provisioner';
+
+const fanProfile = query(EntityType.FanProfile, { name: 'Bob' });
+const fanProfileUpdate = update(EntityType.FanProfile, extract(fanProfile), {
+  name: 'Hello',
+});
+```
+
+#### `upload`
+
+Given an `EntityType`, a file, a query, and optional headers, send an upload request to the API, returning the associated entity from the API.
+
+```typescript
+type upload = <E extends EntityType>(
+  entityType: E,
+  file: Buffer | ArrayBuffer | File,
+  query: QueryAttributes<E>,
+  headers?: Record<string, any>
+) => ApiProc<ES.TypeMap[E]>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType } from 'ts-api-types';
+import { upload, create, query, update, extract } from 'data-provisioner';
+
+const event = create(EntityType.Event, {
+  name: 'My Event',
+});
+
+const printTemplate = query(EntityType.PrintTemplate, {
+  eventManifestId: extract(event, (e) => e.attributes.eventManifestId),
+  cardType: 'INVENTORY',
+  entitlementType: 'SEATING',
+});
+
+const printTemplateFile = upload(
+  EntityType.PrintTemplateFile,
+  new File(['some file contents'], 'file.txt'),
+  { fileName: 'file.txt' },
+  {
+    'Content-Type': 'text/plain',
+  }
+);
+
+const printTemplateUpdate = update(
+  EntityType.PrintTemplate,
+  extract(printTemplate),
+  { printTemplateFileId: extract(printTemplateFile) }
+);
+```
+
+#### `poll`
+
+Given an `EntityType`, a query, and a [`Refinement`](https://gcanti.github.io/fp-ts/modules/function.ts.html#refinement-interface), periodically send a list request to the API, until the refinement predicate returns `true`. Note this function _will not_ throw an exception when results are empty.
+
+```typescript
+type poll = <E extends EntityType, A extends ES.TypeMap[E][]>(
+  entityType: E,
+  query: QueryAttributes<E>,
+  until: Refinement<ES.TypeMap[E][], A>
+) => ApiProc<A>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType, EntitySchemas as ES } from 'ts-api-types';
+import { create, poll, extract } from 'data-provisioner';
+import * as O from 'fp-ts/lib/Option';
+import * as NonEmptyArray from 'fp-ts/lib/NonEmptyArray';
+
+const event = create(EntityType.Event, {
+  name: 'My Event',
+});
+
+// Poll for print templates until some exist
+const printTemplates = poll(
+  EntityType.PrintTemplate,
+  {
+    eventManifestId: extract(event, (e) => e.attributes.eventManifestId),
+    cardType: 'INVENTORY',
+  },
+  (ar): ar is NonEmptyArray.NonEmptyArray<ES.PrintTemplate> =>
+    O.isSome(NonEmptyArray.fromArray(ar))
+);
+```
+
+#### `pollUntilNonEmpty`
+
+Like [`poll`](#poll), but pre-configured with a nonEmpty refinement.
+
+```typescript
+type pollUntilNonEmpty = <E extends EntityType>(
+  entityType: E,
+  query: QueryAttributes<E>
+) => ApiProc<NonEmptyArray<ES.TypeMap[E]>>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType } from 'ts-api-types';
+import { create, pollUntilNonEmpty, extract } from 'data-provisioner';
+
+const event = create(EntityType.Event, {
+  name: 'My Event',
+});
+
+// Poll for print templates until some exist
+const printTemplates = pollUntilNonEmpty(EntityType.PrintTemplate, {
+  eventManifestId: extract(event, (e) => e.attributes.eventManifestId),
+  cardType: 'INVENTORY',
+});
+```
+
+#### `pollFirst`
+
+Like [`poll`](#poll), but pre-configured with a nonEmpty refinement on the list, and executing an additional refinement on the first result of that list.
+
+```typescript
+type pollFirst = <E extends EntityType, A extends ES.TypeMap[E]>(
+  entityType: E,
+  query: QueryAttributes<E>,
+  until: Refinement<ES.TypeMap[E], A>
+) => ApiProc<A>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType, EntitySchemas as ES } from 'ts-api-types';
+import { create, pollFirst, extract } from 'data-provisioner';
+
+const event = create(EntityType.Event, {
+  name: 'My Event',
+});
+
+const eventWithEventManifestId = pollFirst(
   EntityType.Event,
   {
-    // ...
+    id: extract(event),
   },
-  // Don't resolve until the `event` has the
-  // following attributes.
+  (e): e is ES.Event & { attributes: { eventManifestId: string } } =>
+    e.attributes.eventManifestId !== null &&
+    e.attributes.eventManifestId !== undefined
+);
+```
+
+With [`chain`](#chain-Pipeable):
+
+```typescript
+import { EntityType, EntitySchemas as ES } from 'ts-api-types';
+import { create, pollFirst, extract, chain } from 'data-provisioner';
+import { pipe } from 'fp-ts/lib/pipeable';
+
+const event = pipe(
+  create(EntityType.Event, {
+    name: 'My Event',
+  }),
+  chain(({ result: event }) =>
+    pollFirst(
+      EntityType.Event,
+      {
+        id: event.id,
+      },
+      (e): e is ES.Event & { attributes: { eventManifestId: string } } =>
+        e.attributes.eventManifestId !== null &&
+        e.attributes.eventManifestId !== undefined
+    )
+  )
+);
+```
+
+#### `pollFirstUntilNonEmpty`
+
+Like [`pollFirst`](#pollFirst) and [`pollUntilNonEmpty`](#pollUntilNonEmpty), but simply returns the first result of the query, when the list becomes non-empty.
+
+```typescript
+type pollFirstUntilNonEmpty = <E extends EntityType>(
+  entityType: E,
+  query: QueryAttributes<E>
+) => ApiProc<ES.TypeMap[E]>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType } from 'ts-api-types';
+import { create, pollFirstUntilNonEmpty, extract } from 'data-provisioner';
+
+const event = create(EntityType.Event, {
+  name: 'My Event',
+});
+
+// Poll for inventory seating templates until one exists, and return it.
+const printTemplates = pollFirstUntilNonEmpty(EntityType.PrintTemplate, {
+  eventManifestId: extract(event, (e) => e.attributes.eventManifestId),
+  cardType: 'INVENTORY',
+  entitlementType: 'SEATING',
+});
+```
+
+#### `untilEntity`
+
+Like [`pollFirst`](#pollFirst), but curried with an `ApiProc` as input such that it can be used in a `pipe` context without having to manually construct the call to `pollFirst`.
+
+```typescript
+type untilEntity = <E extends Entity, A extends E>(
+  until: Refinement<E, A>
+) => (proc: ApiProc<E>) => ApiProc<A>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType, EntitySchemas as ES } from 'ts-api-types';
+import { create, untilEntity } from 'data-provisioner';
+import { pipe } from 'fp-ts/lib/pipeable';
+
+const event = pipe(
+  create(EntityType.Event, {
+    name: 'My Event',
+  }),
+  untilEntity(
+    (e): e is ES.Event & { attributes: { eventManifestId: string } } =>
+      e.attributes.eventManifestId !== null &&
+      e.attributes.eventManifestId !== undefined
+  )
+);
+```
+
+#### `untilHasAttrs`
+
+Like [`untilHasAttrs`](#untilHasAttrs), but pre-configured with a refinement that checks that the given attributes are neither `null` nor `undefined`.
+
+```typescript
+type untilHasAttrs = <E extends Entity, K extends (keyof E['attributes'])[]>(
+  ks: K
+) => (proc: ApiProc<E>) => ApiProc<E>;
+```
+
+E.g.:
+
+```typescript
+import { EntityType, EntitySchemas as ES } from 'ts-api-types';
+import { create, untilHasAttrs } from 'data-provisioner';
+import { pipe } from 'fp-ts/lib/pipeable';
+
+const event = pipe(
+  create(EntityType.Event, {
+    name: 'My Event',
+  }),
   untilHasAttrs([
     'eventManifestId',
     'priceConfigurationId',
@@ -525,318 +894,190 @@ const expr = create(
 );
 ```
 
-### [`awaitTransaction`](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts#L44)
+#### `awaitTransaction`
 
-This resolver monitors the pub/sub channel and resolves once it sees a message containing the transaction-id associated with the request used to create the entity. The transaction-id is automatically fed into this function from the evaluator — you won't need to provide this.
-
-##### Signature
+Accepts an optional configuration, and monitors the pub/sub channel for messages containing the transaction used to create a given `Proc`.
 
 ```typescript
-type awaitTransaction = <E extends EntityType>(
+type awaitTransaction = ({
   timeout = 30000,
-  rejectOnTimeout = true
-) => Resolver<E>;
+  rejectOnTimeout = true,
+}:
+  | {
+      timeout?: number;
+      rejectOnTimeout?: boolean;
+    }
+  | undefined) => <E extends Entity | NonEmptyArray.NonEmptyArray<Entity>>(
+  proc: ApiProc<E>
+) => ApiProc<E>;
 ```
 
-This function accepts two optional parameters. `timeout` — which specifies the amount of time (in milliseconds) the resolver should wait for a message containing the transaction-id, and `rejectOnTimeout` — which indicates whether or not resolution should fail if a message containing the transaction-id was never seen.
-
-### [`untilEntity`](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/untilEntity.ts)
-
-This resolver accepts a `predicate` function as a parameter, with which the developer can specify their own logic for indicating whether or not the entity should be considered resolved. This resolver will continue to poll the entity from the API until the `predicate` returns `true`.
-
-> The `untilHasAttrs` resolver [uses this function internally](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts#L19).
-
-##### Signature
+E.g.:
 
 ```typescript
-type untilEntity = <E extends EntityType>(
-  pred: (e: ES.TypeMap[E]) => boolean
-) => Resolver<E>;
-```
+import { awaitTransaction, update } from 'data-provisioner';
+import { pipe } from 'fp-ts/lib/pipeable';
 
-##### Example
-
-```typescript
-import { create, Resolvers } from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
-
-const { untilEntity } = Resolvers;
-
-const expr = create(
-  EntityType.Event,
-  {
+const seatTransform = pipe(
+  update(EntityType.SeatTransform, 'aaaa-aaaa-aaaa-aaaa', {
     // ...
-  },
-  // Don't resolve until the `event` has
-  // an `eventManifestId`.
-  untilEntity(e => e.attributes.eventManifestId !== null)
+  }),
+  awaitTransaction({ timeout: 60000 })
 );
 ```
 
-### [`toResolver`](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts#L27)
+## Evaluator
 
-A utlity for transforming any asynchronous operation into a valid `resolver`. It's unlikely you'll need this unless your resolution logic involves polling other unreleated entities or services.
+Again, since the `Proc` themselves are lazy and thus not implicitly executed, we need a way to actually invoke them. The function that does this is called [`provision`](#provision).
 
-##### Signature
+### `provision`
 
 ```typescript
-type toResolver = <E extends EntityType>(
-  effect: (e: ES.TypeMap[E]) => Promise<any>
-) => Resolver<E>;
+type provision = (
+  logger: (s: string) => IO<void>
+) => (inputTree: Tree<Proc<unknown>>) => Promise<Either<unknown, Runtime>>;
 ```
 
-##### Example
+Let's break that down.
+
+#### `logger`
 
 ```typescript
-import rivalApiSdkJs from 'rival-api-sdk-js';
-import { create, Resolvers, Poll } from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
-
-const { toResolver } = Resolvers;
-const { pollUntilNotEmpty } = Poll;
-
-const expr = create(
-  EntityType.Event,
-  {
-    // ...
-  },
-  // Here we create an asynchronous function which:
-  // 1. Extracts the entitlement_base from the created event.
-  // 2. Continuously queries for seat_groups using the event and
-  //    the entitlement_base until results arrive.
-  toResolver(async event => {
-    const entitlementBase = (
-      await rivalApiSdkJs
-        .instance()
-        .entityClient('entitlementBase')
-        .list({
-          entitlementType: 'SEATING',
-          primary: true,
-          eventManifestId: event.attributes.eventManifestId,
-        })
-    )[0];
-
-    // `pollUntilNotEmpty` is a utility that periodically sends
-    // an API query until that query returns at least one result.
-    //
-    // The return type of `pollUntilNotEmpty` here is a non-empty
-    // array of seat_groups, which does not match the signature
-    // of `resolver` — an `event` resolver _must_ return the
-    // `event` instance. `toResolver` gets us around this by
-    // implicitly feeding the `event` entity back into the
-    // data-provisioner.
-    //
-    // We could have optionally added an `await` to this call
-    // and returned the `event` instance that was injected at the
-    // top of this function — the type signature would indeed
-    // match up in that case and we would not need `toResolver`.
-    // `toResolver` just gives you the flexibility to not need
-    // to worry about returning the event from your asynchronous
-    // operation. This is especially useful when chaining
-    // promises and using the short arrow's implicit return
-    // semantics (which we did not do here).
-    return pollUntilNotEmpty(EntityType.SeatGroup, {
-      queryType: 'MANAGE',
-      type: 'ROW',
-      entitlementBaseId: entitlementBase.id,
-      eventId: event.id,
-    });
-  })
-);
+(s: string) => IO<void>
 ```
 
-Note the signature of `resolver`. It _must_ return the entity back to the data-provisioner (note the return type).
+Most of the `ApiProc`s will output some kind of log entry.
+
+> See [here](https://gcanti.github.io/fp-ts/modules/IO.ts.html) for information on the `IO` type — its type signature is analogous to that of [`Lazy`](https://gcanti.github.io/fp-ts/modules/function.ts.html#lazy-interface).
+
+Simplest `logger` example looks something like the following:
 
 ```typescript
-type Resolver<E extends EntityType> = (
-  entity: ES.TypeMap[E],
-  transactionId: string
-) => Promise<ES.TypeMap[E]>;
+const logger = (msg: string) => () => console.log(msg);
 ```
 
-Using `toResolver` ensures that regardless of the value returned from the given promise, the original entity will always be given back to the data-provisioner.
+`fp-ts` [exports a function that does exactly this](https://gcanti.github.io/fp-ts/modules/Console.ts.html#log).
 
 ```typescript
-type toResolver = <E extends EntityType>(
-  effect: (e: ES.TypeMap[E]) => Promise<any>
-) => Resolver<E>;
+import { log } from 'fp-ts/lib/Console';
 ```
 
-### [`compose`](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts#L32)
-
-A utlity for sequentially executing two `resolvers` (right-to-left), and feeding the output of one into the input of the other.
-
-##### Signature
+#### `inputTree`
 
 ```typescript
-type compose = <E extends EntityType>(
-  a: Resolver<E>,
-  b: Resolver<E>
-) => Resolver<E>;
+inputTree: Tree<Proc<unknown>>
 ```
 
-### [`composeR`](https://github.com/10eTechnology/data-provisioner/blob/master/src/util/Resolvers/index.ts#L39)
+Provision accepts a `Tree` of `Proc`s (`Tree<Proc<unknown>>`). The order and sequence from the perspective of `provision` is irrelevant, as the proper sequence will be encoded into the `Proc`s by definition.
 
-The same as [`compose`](#compose), but arguments are evaluated left-to-right.
-
-##### Signature
+`Tree` is defined as:
 
 ```typescript
-type composeR = <E extends EntityType>(
-  a: Resolver<E>,
-  b: Resolver<E>
-) => Resolver<E>;
+type Tree<A> = A | unknown | Tree<A>[] | { [key: string]: Tree<A> };
 ```
 
-##### Example
+These are all valid trees:
 
 ```typescript
-import { create, Resolvers, Poll } from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
+import { proc } from 'data-provisioner';
 
-const { composeR, untilHasAttrs, toResolver } = Resolvers;
-const { pollUntilNotEmpty } = Poll;
+const tree1 = [proc.of(3)];
 
-const expr = create(
-  EntityType.Event,
-  {
-    // ...
-  },
-  composeR(
-    untilHasAttrs([
-      'eventManifestId',
-      'priceConfigurationId',
-      'manifestCategorySetId',
-    ]),
-    // Don't execute the following resolver until the event has
-    // `eventManifestId`, `priceConfigurationId`, and
-    // `manifestCategorySetId`.
-    toResolver(async event => {
-      const entitlementBase = (
-        await rivalApiSdkJs
-          .instance()
-          .entityClient('entitlementBase')
-          .list({
-            entitlementType: 'SEATING',
-            primary: true,
-            // We've protected against `eventManifestId` not
-            // being set by chaining this with the above
-            // `untilHasAttrs`.
-            eventManifestId: event.attributes.eventManifestId,
-          })
-      )[0];
+const tree2 = proc.of('hello world');
 
-      return pollUntilNotEmpty(EntityType.SeatGroup, {
-        queryType: 'MANAGE',
-        type: 'ROW',
-        entitlementBaseId: entitlementBase.id,
-        eventId: event.id,
-      });
-    })
-  )
-);
+const tree3 = [proc.of(3), { someKey: proc.of('hello world') }];
+
+const tree4 = { x: [proc.of(3), { y: { z: proc.of('hello world') } }] };
 ```
 
-## Baking in resolution logic to expressions with [`createSpec`](#createSpec)
-
-Above, we briefly mentioned [`createSpec`](#createSpec). [`createSpec`](#createSpec) is a function which returns a function which creates an expression with embedded field and resolution semantics — you can think of it as an expression factory factory.
+#### Return type
 
 ```typescript
-import { createSpec, Resolvers, Poll, Fetch } from 'data-provisioner';
-import { EntityType } from 'ts-api-types';
-
-const { untilHasAttrs, toResolver, composeR } = Resolvers;
-const { first } = Fetch;
-const { pollUntilNotEmpty } = Poll;
-
-export const createEvent = createSpec(
-  EntityType.Event,
-  ['manifestConfigurationTemplateId', 'name', 'eventDatetime'],
-  composeR(
-    untilHasAttrs([
-      'eventManifestId',
-      'priceConfigurationId',
-      'manifestCategorySetId',
-    ]),
-    toResolver(event =>
-      first(EntityType.EntitlementBase)({
-        entitlementType: 'SEATING',
-        primary: true,
-        eventManifestId: event.attributes.eventManifestId,
-      }).then(entitlementBase =>
-        pollUntilNotEmpty(EntityType.SeatGroup, {
-          queryType: 'MANAGE',
-          type: 'ROW',
-          entitlementBaseId: entitlementBase.id,
-          eventId: event.id,
-        })
-      )
-    )
-  )
-);
+Promise<E.Either<unknown, Runtime>>
 ```
 
-We now have a function called `createEvent` which, when called, creates a new `event` expression which implicitly has the given resolution logic baked into it. This is a really powerful way write resolution semantics once for a single entity type, and re-use it for every other instance of an expression of that type.
+A `Promise` containing either some failure message or a [`runtime`](#runtime) associated with the given `Tree`. If the evaluation fails, any invertible steps will be implicitly inverted.
 
-Creating an event with this resolution logic is now as simple as
+E.g.:
 
 ```typescript
-// Assume some `venue` expr above
-const manifestConfigurationTemplate = query(
-  EntityType.ManifestConfigurationTemplate,
-  { venueId: extract(venue) }
-);
+import { proc, provision } from 'data-provisioner';
+import { log } from 'fp-ts/lib/Console';
 
-// This event expression has all the above defined resolution
-// logic baked into it.
-const eventExpr = createEvent({
-  manifestConfigurationTemplateId: extract(manifestConfigurationTemplate),
-  name: `My Event`,
-  eventDatetime: {
-    timezone: extract(venue, v => v.attributes.timezone),
-    datetimeUtc: moment(faker.date.future()).toISOString(),
-  },
-});
+const proc1 = proc.of(3);
+const proc2 = proc.of('hello world');
+const procTree = [proc1, proc2];
+
+const maybeRuntime = await provision(log)(procTree);
+if (maybeRuntime._tag === 'Left') {
+  console.log(`There was an error, ${maybeRuntime.left}`);
+  return;
+}
+
+const runtime = maybeRuntime.right;
+const x = runtime.get(proc2); // -> 'hello world'
+// ...
 ```
 
-## Creating non-inlined `resolvers`
+### `Runtime`
 
-All the `resolvers` we've created thus far were added inline during the creation of our expressions. This provides the benefit of type-inference — TypeScript can automatically infer the type of the resolver by virtue of its explicit embedding into an already typed expression. All expressions are immediately 'reified' once their `EntityType` parameter is specified (this is how TypeScript is able to type check the attribute parameters).
-
-```typescript
-// This expression is reified to type `Expr<EntityType.Event>`
-// the moment the `EntityType.Event` parameter is specified.
-const expr = create(
-  EntityType.Event,
-  {
-    //...
-  },
-  // As such, TypeScript automatically knows the entity below
-  // _must_ be of type `event`.
-  event => {
-    // ...
-  }
-);
-```
-
-But what if we want to create a resolver that isn't embedded in an expression? We can do this by explicitly declaring the type of a resolver when creating it.
+A successful provision returns a `Runtime`. `Runtime` is the interface through which one will extract results from the evaluation of a `Proc` Tree.
 
 ```typescript
-import { EntityType } from 'ts-api-types';
-import { Resolvers } from 'data-provisioner';
-
-const { Resolver } = Resolvers;
-
-const myResolver: Resolver<EntityType.Event> = event => {
-  // Do something more interesting that this...
-  return Promise.resolve(event);
+type Runtime = {
+  get: <A>(p: Proc<A>) => A;
+  toJSON: Lazy<string>;
+  getEvalMap: Lazy<EvalMap>;
+  toArray: Lazy<[number, unknown][]>;
 };
+```
 
-const expr = create(
-  EntityType.Event,
-  {
-    //...
-  },
-  myResolver
-);
+In addition to `get`, which retrieves the evaluated value for a given `Proc`, there's a few other methods available to aid in persisting the runtime for later rehydration.
+
+There are some associated helpers exported to facilitate the rehydration itself.
+
+```typescript
+import { fromJSON, fromArray } from 'data-provisioner';
+
+// ... assume loaded JSON from previous toJSON call
+const runtime = fromJSON(json);
+
+// or
+const runtime = fromArray(JSON.parse(json));
+```
+
+### `teardown`
+
+```typescript
+type teardown = (
+  logger: (s: string) => IO<void>
+) => (runtime: Runtime) => Promise<Either<unknown, unknown[]>>;
+```
+
+Given a `logger`, and a `runtime` from previous provisioning, invert any evaluation results which are invertible.
+
+```typescript
+import { proc, provision, teardown } from 'data-provisioner';
+import { log } from 'fp-ts/lib/Console';
+
+const proc1 = proc.of(3);
+const proc2 = proc.of('hello world');
+const procTree = [proc1, proc2];
+
+const maybeRuntime = await provision(log)(procTree);
+if (maybeRuntime._tag === 'Left') {
+  console.log(`There was an error, ${maybeRuntime.left}`);
+  return;
+}
+
+const runtime = maybeRuntime.right;
+const x = runtime.get(proc2); // -> 'hello world'
+// ... do useful stuff
+
+const teardownResult = await teardown(log)(runtime);
+if (teardownResult._tag === 'Left') {
+  console.log(`There was an error on teardown! ${teardownResult.left}`);
+  return;
+}
+console.log('teardown successful');
 ```
