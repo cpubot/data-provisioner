@@ -56,5 +56,5 @@
 
     "skipLibCheck": true
   },
-  "include": ["./src"]
+  "include": ["./src", "./__tests__"]
 }
