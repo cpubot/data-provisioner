@@ -1,10 +1,31 @@
 import * as fc from 'fast-check';
 import { identity, unsafeCoerce } from 'fp-ts/lib/function';
-import { Proc, proc, mkSys, map } from '../../../src/core/Proc';
+import * as E from 'fp-ts/lib/Either';
+import * as O from 'fp-ts/lib/Option';
+
+import {
+  Proc,
+  proc,
+  mkSys,
+  map,
+  AsyncValue,
+  lift,
+  liftFn,
+  mkExogenousError,
+  mkPreempt,
+} from '../../../src/core/Proc';
 
 const logger = () => () => void 0;
 const mkSysSimple = () => mkSys(logger);
-const run = <A>(p: Proc<A>) => p.proc(mkSysSimple());
+const run = <A>({ proc }: Proc<A>, sys = mkSysSimple()) => proc(sys);
+const runT = <T extends Proc<unknown>[]>(
+  ...ar: T
+): Proc<
+  { [K in keyof T]: T[K] extends Proc<infer R> ? AsyncValue<R> : never }
+> => {
+  const sys = mkSysSimple();
+  return unsafeCoerce(Promise.all(ar.map(({ proc }) => proc(sys))));
+};
 
 const compose = <A, B, C>(f: (b: B) => C, g: (a: A) => B): ((a: A) => C) => (
   a
@@ -236,4 +257,70 @@ describe('laws', () => {
       );
     });
   });
+});
+
+test('either failure conversion', () => {
+  expect(run(lift(() => Promise.reject('error')))).resolves.toEqual(
+    E.left(mkExogenousError('error'))
+  );
+
+  expect(
+    run(
+      liftFn(() => {
+        throw new Error('error');
+      })
+    )
+  ).resolves.toEqual(E.left(mkExogenousError('error')));
+});
+
+test('interupt', () => {
+  const sys = mkSysSimple();
+  sys.interrupt(mkExogenousError('error'));
+  expect(sys.shouldPreempt()).toEqual(true);
+  expect(sys.mutInterrupt).toEqual(O.some(mkExogenousError('error')));
+});
+
+test('mutInterupt set on failure', async () => {
+  const sys = mkSysSimple();
+  await lift(() => Promise.reject('error')).proc(sys);
+
+  expect(sys.shouldPreempt()).toEqual(true);
+  expect(sys.mutInterrupt).toEqual(O.some(mkExogenousError('error')));
+});
+
+test('cascading proc failure', () => {
+  const proc1 = proc.of(3);
+  const proc2 = proc.map(proc1, () => {
+    throw new Error('error');
+  });
+
+  const proc3 = proc.map(proc2, (x) => x + 1);
+
+  expect(run(proc3)).resolves.toEqual(E.left(mkExogenousError('error')));
+  expect(run(proc.chain(proc3, (x) => proc.of(x ^ 2)))).resolves.toEqual(
+    E.left(mkExogenousError('error'))
+  );
+});
+
+test('interrupt failure', async () => {
+  expect(
+    runT(
+      lift(() => Promise.reject('error')),
+      lift(() => Promise.resolve(3)),
+      lift(() => Promise.resolve(true))
+    )
+  ).resolves.toEqual([
+    E.left(mkExogenousError('error')),
+    E.left(mkPreempt(O.some(unsafeCoerce(E.right(3))))),
+    E.left(mkPreempt(O.some(unsafeCoerce(E.right(true))))),
+  ]);
+
+  const sys = mkSysSimple();
+  expect([
+    await run(
+      lift(() => Promise.reject('error')),
+      sys
+    ),
+    await run(proc.of(3), sys),
+  ]).toEqual([E.left(mkExogenousError('error')), E.left(mkPreempt())]);
 });

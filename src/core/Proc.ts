@@ -138,7 +138,7 @@ export const isProc = (e: any): e is Proc<unknown> =>
   isObject(e) && e._isProc === _isProc;
 
 export type Value<A> = E.Either<SysError, A>;
-type AsyncValue<A> = Promise<Value<A>>;
+export type AsyncValue<A> = Promise<Value<A>>;
 type SysReader<A> = Reader<Readonly<Sys>, A>;
 type SysAsyncValue<A> = SysReader<AsyncValue<A>>;
 type LazyAsyncValue<A> = Lazy<AsyncValue<A>>;
@@ -201,7 +201,8 @@ export const mkProc: MkProc = (t, id = mkId()) => ({
 // Helper to catch promise rejections and convert to Left<ExogenousError>
 const tryCatch = <A>(p: Lazy<Promise<A>>) => TE.tryCatch(p, mkExogenousError);
 // Helper to catch exceptions and convert to Left<ExogenousError>
-const tryCatchFn = <A>(f: Lazy<A>) => E.tryCatch(f, mkExogenousError);
+const tryCatchFn = <A>(f: Lazy<A>) =>
+  E.tryCatch(f, (e) => mkExogenousError(e instanceof Error ? e.message : e));
 
 // Helper to lift an arbitrary Lazy<Promise> into a Proc.
 export const lift = <A>(p: Lazy<Promise<A>>) => mkProc(() => tryCatch(p));

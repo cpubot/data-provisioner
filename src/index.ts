@@ -46,7 +46,7 @@ export {
   fromJSON,
   toJSON,
   mkRuntime,
-} from './Evaluator';
+} from './evaluator';
 
 export { Tree, collect, mapTree, flat } from './util';
 
