@@ -11,11 +11,21 @@ import { Runtime } from './Runtime';
 import * as Api from '../lib/Api';
 import { Value, Sys, isPreempt } from '../core/Proc';
 
-export const teardown = (logger: Sys['logger']) => async (runtime: Runtime) =>
-  array.sequence(E.either)(
+export const teardown = (logger: Sys['logger']) => async (runtime: Runtime) => {
+  const dedupe = new Set();
+  return array.sequence(E.either)(
     await Promise.all(
       (Array.from(runtime.getEvalMap().entries())
-        .filter(([, ev]) => Api.isApiResponse(ev) && ev.method === 'Create')
+        .filter(([, ev]) => {
+          if (Api.isApiResponse(ev) && ev.method === 'Create') {
+            if (dedupe.has(ev.result.id)) {
+              return false;
+            }
+            dedupe.add(ev.result.id);
+            return true;
+          }
+          return false;
+        })
         .sort(([idA], [idB]) => idB - idA) as [number, Api.Response][]).map(
         ([, c]) => {
           const etk = snakeCaseToEntityTypeKey(c.result.type);
@@ -34,13 +44,16 @@ export const teardown = (logger: Sys['logger']) => async (runtime: Runtime) =>
       )
     )
   );
+};
 
-export const teardownPartial = async (context: Map<number, Value<unknown>>) => {
-  const invertables: (readonly [number, Api.Response])[] = [];
+export const teardownPartial = (logger: Sys['logger']) => async (
+  context: Map<number, Value<unknown>>
+) => {
+  const invertables: Map<string, readonly [number, Api.Response]> = new Map();
   for (const [id, value] of context.entries()) {
     if (E.isRight(value)) {
       if (Api.isApiResponse(value.right) && value.right.method === 'Create') {
-        invertables.push([id, value.right] as const);
+        invertables.set(value.right.result.id, [id, value.right]);
       }
       continue;
     }
@@ -53,16 +66,22 @@ export const teardownPartial = async (context: Map<number, Value<unknown>>) => {
         Api.isApiResponse(value.left.result.value.right) &&
         value.left.result.value.right.method === 'Create'
       ) {
-        invertables.push([id, value.left.result.value.right] as const);
+        invertables.set(value.left.result.value.right.result.id, [
+          id,
+          value.left.result.value.right,
+        ]);
       }
     }
   }
 
   return Promise.all(
-    invertables
-      .sort(([idA], [idB]) => idB - idA)
-      .map(([, c]) =>
-        TE.tryCatch(
+    Array.from(invertables)
+      .sort(([, [idA]], [, [idB]]) => idB - idA)
+      .map(([, [, c]]) => {
+        const etk = snakeCaseToEntityTypeKey(c.result.type);
+        logger(`Delete: ${etk} ${JSON.stringify({ id: c.result.id })}`)();
+
+        return TE.tryCatch(
           () =>
             rivalApiSdkJs
               .instance()
@@ -70,7 +89,7 @@ export const teardownPartial = async (context: Map<number, Value<unknown>>) => {
               .delete(c.result.id)
               .getPromise(),
           identity
-        )()
-      )
+        )();
+      })
   );
 };

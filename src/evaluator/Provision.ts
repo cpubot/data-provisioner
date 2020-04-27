@@ -27,7 +27,7 @@ export const provision = (logger: Sys['logger']) => async (
   // If mutInterupt is set, there was an error.
   if (O.isSome(sys.mutInterrupt)) {
     // Implicit teardown of partial completion.
-    await teardownPartial(context);
+    await teardownPartial(logger)(context);
     return E.left(sys.mutInterrupt.value.e);
   }
 
