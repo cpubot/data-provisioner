@@ -1876,10 +1876,10 @@ form-data@~2.3.2:
     combined-stream "^1.0.6"
     mime-types "^2.1.12"
 
-fp-ts@^2.5.3:
-  version "2.5.3"
-  resolved "https://rival.jfrog.io/rival/api/npm/npm/fp-ts/-/fp-ts-2.5.3.tgz#7f09cc7f3e09623c6ade303d98a2cccdb2cc861f"
-  integrity sha1-fwnMfz4JYjxq3jA9mKLMzbLMhh8=
+fp-ts@^2.5.4:
+  version "2.5.4"
+  resolved "https://rival.jfrog.io/rival/api/npm/npm/fp-ts/-/fp-ts-2.5.4.tgz#f184079aaa78403ea66458517be7787e0d593429"
+  integrity sha1-8YQHmqp4QD6mZFhRe+d4fg1ZNCk=
 
 fragment-cache@^0.2.1:
   version "0.2.1"
