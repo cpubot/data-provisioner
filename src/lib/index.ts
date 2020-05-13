@@ -1,6 +1,7 @@
 export {
   ApiProc,
   create,
+  clone,
   list,
   first,
   last,

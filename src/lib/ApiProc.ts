@@ -100,6 +100,11 @@ export const create = <E extends EntityType>(
   query: QueryAttributes<E>
 ) => pipe(mkQueryProc(query), chain(Api.create(entityType)));
 
+export const clone = <E extends EntityType>(
+  entityType: E,
+  query: QueryAttributes<E>
+) => pipe(mkQueryProc(query), chain(Api.clone(entityType)));
+
 export const update = <E extends EntityType>(
   entityType: E,
   idProc: Proc<string> | string,

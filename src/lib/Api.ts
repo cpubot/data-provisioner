@@ -57,6 +57,20 @@ export const create = <E extends EntityType>(entityType: E) => <Q>(query: Q) =>
     }));
   });
 
+export const clone = <E extends EntityType>(entityType: E) => <Q>(query: Q) =>
+  liftSys<Response<Schema<E>>>((r) => {
+    r.logger(
+      `Clone: ${entityTypeToEntityTypeKey(entityType)} ${JSON.stringify(query)}`
+    )();
+    const tx = ec(entityType).clone(query) as Transaction<Schema<E>>;
+    return tx.getPromise().then((result) => ({
+      result,
+      query,
+      method: 'Create',
+      txId: tx.getId(),
+    }));
+  });
+
 export const list = <E extends EntityType>(entityType: E) => <Q>(query: Q) =>
   liftSys<Response<Schema<E>[]>>((r) => {
     r.logger(
